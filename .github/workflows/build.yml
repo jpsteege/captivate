@@ -77,6 +77,6 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          tag="${{ env.captivate_version }}-$(git rev-parse --short HEAD)"
+          tag="${{ env.captivate_version }}-$(git rev-list --count HEAD)-$(git rev-parse --short HEAD)"
           gh release create --title "$tag" "$tag" || true
           gh release upload "$tag" release/build/* || true
