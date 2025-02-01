@@ -51,6 +51,10 @@ jobs:
           npm run package
           npm exec tsc
 
+      - name: Fetch version
+        run: |
+          echo "captivate_version=$(jq -r .version release/app/package.json)" >> "$GITHUB_ENV"
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -59,3 +63,19 @@ jobs:
             release/build/*.AppImage
             release/build/*.dmg
             release/build/*.exe
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download artifacts for all builds
+        uses: actions/download-artifact@v4
+        with:
+          path: release/build
+      - name: Create a release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag="${{ env.captivate_version }}-$(git rev-parse --short HEAD)"
+          gh release create --title "$tag" "$tag" || true
+          gh release upload "$tag" release/build/* || true
