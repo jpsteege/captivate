@@ -1,5 +1,6 @@
 import fixturesIn from '../../assets/captivate_fixtures.db'
 import { FixtureType } from './dmxFixtures'
+import uFuzzy from '@leeoniya/ufuzzy'
 
 console.log(fixturesIn.slice(0, 100))
 
@@ -28,6 +29,8 @@ export function closestMatches(searchString: string): string[] {
   return fuzzySearch(searchString, fixtureSearchIds, 100)
 }
 
+const uf = new uFuzzy({})
+
 export function fuzzySearch(
   searchSentence: string,
   options: string[],
@@ -35,20 +38,30 @@ export function fuzzySearch(
 ): string[] {
   if (searchSentence.length === 0) return options.slice(0, count)
 
-  return options
-    .map((option) => ({
-      option,
-      score: searchSentence
-        .toLowerCase()
-        .split(' ')
-        .reduce((score, searchWord) => {
-          return option.toLowerCase().includes(searchWord)
-            ? score + searchWord.length
-            : score - 100
-        }, 0),
-    }))
-    .filter(({ score }) => score > 0)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, count)
-    .map((result) => result.option)
+  const idxs = uf.filter(options, searchSentence)
+  const results: string[] = []
+
+  if (idxs) {
+    const total = Math.min(count, idxs.length)
+    const sortThreshold = 1000
+
+    if (total < sortThreshold) {
+      // Sort/rank only for few enough results
+
+      const info = uf.info(idxs, options, searchSentence)
+      const order = uf.sort(info, options, searchSentence)
+
+      for (let i = 0; i < total; i++) {
+        results.push(options[info.idx[order[i]]])
+      }
+    } else {
+      // Otherwise emit unsorted results
+
+      for (let i = 0; i < total; i++) {
+        results.push(options[idxs[i]])
+      }
+    }
+  }
+
+  return results
 }
