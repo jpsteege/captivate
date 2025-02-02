@@ -25,6 +25,12 @@ export default class AppUpdater {
   }
 }
 
+// Monkey-patch showErrorBox to avoid error modals at runtime
+// See https://stackoverflow.com/questions/35620764/how-to-disable-alert-dialogs-when-errors-occur-in-atom-electron
+dialog.showErrorBox = (title: string, content: string) => {
+  console.error(`Top-level error: ${title}\n${content}`);
+};
+
 let mainWindow: BrowserWindow | null = null
 let isClosing = false
 let visualizerContainer: VisualizerContainer = {
