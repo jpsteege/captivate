@@ -16,41 +16,30 @@ jobs:
     steps:
       - name: Check out Git repository
         uses: actions/checkout@v1
-
       - name: Checkout submodules
         run: git submodule update --init --recursive
-
       - name: Pull Git LFS
         run: git lfs pull
-
       - name: Install Linux dependencies
         if: runner.os == 'Linux'
         run: sudo apt-get update -y && sudo apt-get install -y libasound2-dev
-
       - name: Install Node.js and NPM
         uses: actions/setup-node@v2
         with:
           node-version: 16
           cache: npm
-
       - uses: actions/setup-python@v4 # https://github.com/nodejs/node-gyp/issues/2869
         with:
           python-version: '3.11'
-
       - name: npm install
         run: |
           npm install
-
       - name: npm test
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-        # npm run lint
-        # npm test
         run: |
           npm run package
           npm exec tsc
-
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
