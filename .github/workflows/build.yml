@@ -49,6 +49,7 @@ jobs:
             release/build/*.dmg
             release/build/*.exe
   release:
+    if: github.ref == 'refs/heads/fwcd'
     runs-on: ubuntu-latest
     needs: [build]
 
