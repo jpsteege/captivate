@@ -76,6 +76,6 @@ jobs:
           version="$(jq -r .version release/app/package.json)"
           count="$(git rev-list --count HEAD)"
           sha="$(git rev-parse --short HEAD)"
-          tag="$version-$count-$sha"
+          tag="v$version.c$count.r$sha"
           gh release create --title "$tag" "$tag" || true
           gh release upload "$tag" release/build/* || true
