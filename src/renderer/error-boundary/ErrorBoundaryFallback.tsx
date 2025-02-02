@@ -6,9 +6,11 @@ import { useEffect } from 'react'
 import initState from 'renderer/redux/initState'
 
 export default function ErrorBoundaryFallback({
-  resetError,
+  error,
+  resetErrorBoundary,
 }: {
-  resetError: () => void
+  error: Error,
+  resetErrorBoundary: () => void
 }) {
   useEffect(() => {
     stopAutoSave()
@@ -20,6 +22,7 @@ export default function ErrorBoundaryFallback({
   return (
     <Root>
       <Title>An Error Occured :/</Title>
+      <pre>{error.message}</pre>
       <Info>First, try loading a recent save</Info>
       <ButtonGroup variant="contained">
         {saves.map(({ timePassed, apply }, i) => (
@@ -27,7 +30,7 @@ export default function ErrorBoundaryFallback({
             key={i}
             onClick={() => {
               apply()
-              resetError()
+              resetErrorBoundary()
             }}
           >
             {timePassed}
@@ -39,7 +42,7 @@ export default function ErrorBoundaryFallback({
         variant="contained"
         onClick={() => {
           store.dispatch(resetState(initState()))
-          resetError()
+          resetErrorBoundary()
         }}
       >
         Restart from defaults

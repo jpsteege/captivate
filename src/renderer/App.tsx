@@ -9,7 +9,8 @@ import { useTypedSelector } from './redux/store'
 import FullscreenOverlay from './overlays/FullscreenOverlay'
 import BottomStatus from './menu/BottomStatus'
 import LedPage from './pages/LedPage'
-import ErrorBoundary from './error-boundary/ErrorBoundary'
+import { ErrorBoundary } from 'react-error-boundary'
+import ErrorBoundaryFallback from './error-boundary/ErrorBoundaryFallback'
 
 export default function App() {
   const activePage = useTypedSelector((state) => state.gui.activePage)
@@ -27,7 +28,7 @@ export default function App() {
 
   return (
     <Root>
-      <ErrorBoundary>
+      <ErrorBoundary FallbackComponent={ErrorBoundaryFallback}>
         <MenuBar />
         <Col>
           <PageWrapper style={{ overflow: 'auto' }}>
