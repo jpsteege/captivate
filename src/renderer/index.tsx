@@ -1,5 +1,3 @@
-import './3rd-party/initFirebase'
-import './3rd-party/initErrorLogging'
 import { render } from 'react-dom'
 import { ThemeProvider } from 'styled-components'
 import GlobalStyle from './GlobalStyle'
