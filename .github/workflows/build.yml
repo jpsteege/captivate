@@ -51,10 +51,6 @@ jobs:
           npm run package
           npm exec tsc
 
-      - name: Fetch version
-        run: |
-          echo "captivate_version=$(jq -r .version release/app/package.json)" >> "$GITHUB_ENV"
-
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -77,6 +73,9 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          tag="${{ env.captivate_version }}-$(git rev-list --count HEAD)-$(git rev-parse --short HEAD)"
+          version="$(jq -r .version release/app/package.json)"
+          count="$(git rev-list --count HEAD)"
+          sha="$(git rev-parse --short HEAD)"
+          tag="$version-$count-$sha"
           gh release create --title "$tag" "$tag" || true
           gh release upload "$tag" release/build/* || true
