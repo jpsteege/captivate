@@ -65,6 +65,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: '0' # to compute the monotonic version correctly
       - name: Download artifacts for all builds
         uses: actions/download-artifact@v4
         with:
