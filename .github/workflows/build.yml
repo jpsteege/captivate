@@ -27,7 +27,6 @@ jobs:
         uses: actions/setup-node@v2
         with:
           node-version: 16
-          cache: npm
       - uses: actions/setup-python@v4 # https://github.com/nodejs/node-gyp/issues/2869
         with:
           python-version: '3.11'
