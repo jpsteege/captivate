@@ -57,6 +57,7 @@ let _connectionManager = new ConnectionManager({
   controlState: () => _controlState,
   realtimeState: () => _realtimeState,
 })
+let _wledManager: WledManager | null = null
 
 const _midiThrottle = new ThrottleMap((message: MidiMessage) => {
   if (_controlState !== null && _ipcCallbacks !== null) {
@@ -123,10 +124,21 @@ export function start(
       })
     }
   }, 1000 / 90)
+
+  _wledManager = new WledManager({
+    controlState: () => _controlState,
+    realtimeState: () => _realtimeState,
+    onWledConnectionUpdate: (info) =>
+      _ipcCallbacks?.send_wled_connection_update(info),
+  })
   return _ipcCallbacks
 }
 
 export function stop() {
+  if (_wledManager) {
+    _wledManager.release()
+    _wledManager = null
+  }
   _ipcCallbacks = null
 }
 
@@ -242,8 +254,3 @@ function getNextRealtimeState(
     splitStates,
   }
 }
-
-new WledManager({
-  controlState: () => _controlState,
-  realtimeState: () => _realtimeState,
-})

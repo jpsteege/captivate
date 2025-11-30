@@ -1,12 +1,13 @@
 import { getLedValues } from '../../../shared/ledFixtures'
+import { WledConnectionInfo } from '../../../shared/connection'
 import { EngineContext } from '../engineContext'
 import WledDevice from './wled_device'
 
 export default class WledManager {
   private devices: { [mdns: string]: WledDevice | undefined } = {}
-  private pokeInterval
-  private broadcastInterval
-  private c
+  private pokeInterval: NodeJS.Timeout
+  private broadcastInterval: NodeJS.Timeout
+  private c: EngineContext
 
   constructor(c: EngineContext) {
     this.c = c
@@ -21,7 +22,14 @@ export default class WledManager {
       const state = this.c.controlState()
       if (state === null) return
 
+      if (!state.gui.ledEnabled) return
+
       const rtState = this.c.realtimeState()
+      if (
+        rtState.splitStates.length === 0 ||
+        !rtState.splitStates[0]?.outputParams
+      )
+        return
 
       for (const fixture of state.dmx.led.ledFixtures) {
         const device = this.devices[fixture.mdns]
@@ -42,6 +50,8 @@ export default class WledManager {
     const state = this.c.controlState()
     if (state === null) return
 
+    const mdnsSet = new Set(state.dmx.led.ledFixtures.map((f) => f.mdns))
+
     for (const fixture of state.dmx.led.ledFixtures) {
       const device = this.devices[fixture.mdns]
       if (device === undefined) {
@@ -50,6 +60,30 @@ export default class WledManager {
         device.refresh()
       }
     }
+
+    for (const [mdns, device] of Object.entries(this.devices)) {
+      if (!mdnsSet.has(mdns)) {
+        console.log('WLED device removed', { mdns })
+        device?.release()
+        delete this.devices[mdns]
+      }
+    }
+
+    this.c.onWledConnectionUpdate?.(this.getConnectionStatus())
+  }
+
+  getConnectionStatus(): WledConnectionInfo {
+    const available = Object.values(this.devices)
+      .filter((d): d is WledDevice => d !== undefined)
+      .map((device) => device.getDeviceInfo())
+    const connected = available
+      .filter((d) => {
+        const device = this.devices[d.mdns]
+        return device !== undefined && device.isConnected()
+      })
+      .map((d) => d.mdns)
+
+    return { available, connected }
   }
 
   release() {

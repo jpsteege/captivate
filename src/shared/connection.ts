@@ -31,7 +31,9 @@ export interface MidiDevice_t {
   name: string
 }
 
-export interface ArtNetConnectionInfo {}
+export interface ArtNetConnectionInfo {
+  ipOut: string | null
+}
 
 export interface DmxConnectionInfo {
   connected: ConnectionId[]
@@ -43,6 +45,18 @@ export interface DmxConnectionInfo {
 export interface MidiConnections {
   connected: ConnectionId[]
   available: MidiDevice_t[]
+}
+
+export interface WledDevice_t {
+  mdns: string
+  name: string
+  ip: string | null
+  lastSeen: number
+}
+
+export interface WledConnectionInfo {
+  connected: string[]
+  available: WledDevice_t[]
 }
 
 export function initMidiConnections(): MidiConnections {
@@ -60,5 +74,12 @@ export function initDmxConnections(): DmxConnectionInfo {
     artNet: {
       ipOut: null,
     },
+  }
+}
+
+export function initWledConnections(): WledConnectionInfo {
+  return {
+    connected: [],
+    available: [],
   }
 }

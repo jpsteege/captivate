@@ -11,7 +11,7 @@ import { PayloadAction } from '@reduxjs/toolkit'
 import { promises } from 'fs'
 import { VisualizerResource } from '../../visualizer/threejs/VisualizerManager'
 import { VisualizerContainer } from './createVisualizerWindow'
-import { DmxConnectionInfo } from 'shared/connection'
+import { DmxConnectionInfo, WledConnectionInfo } from 'shared/connection'
 
 interface Config {
   renderer: WebContents
@@ -41,6 +41,8 @@ export function ipcSetup(config: Config) {
   return {
     send_dmx_connection_update: (payload: DmxConnectionInfo) =>
       _config.renderer.send(ipcChannels.dmx_connection_update, payload),
+    send_wled_connection_update: (payload: WledConnectionInfo) =>
+      _config.renderer.send(ipcChannels.wled_connection_update, payload),
     send_midi_connection_update: (payload: midiConnection.UpdatePayload) =>
       _config.renderer.send(ipcChannels.midi_connection_update, payload),
     send_time_state: (time_state: RealtimeState) =>

@@ -8,6 +8,7 @@ import { EngineContext } from 'main/engine/engineContext'
 export class ArtNetManager {
   private client: dgram.Socket
   private intervalHandle: NodeJS.Timer
+  private lastIpOut: string | null = null
 
   constructor(c: EngineContext) {
     this.client = dgram.createSocket('udp4')
@@ -20,6 +21,7 @@ export class ArtNetManager {
         ? controlState.control.device.connectable.artNet[0]
         : undefined
       if (artNetIpOut && toIpBuffer(artNetIpOut)) {
+        this.lastIpOut = artNetIpOut
         this.client.send(
           buffer,
           constants.ARTNET_PORT,
@@ -37,7 +39,7 @@ export class ArtNetManager {
   }
 
   updateConnections(): ArtNetConnectionInfo {
-    return {}
+    return { ipOut: this.lastIpOut }
   }
 
   destroy() {

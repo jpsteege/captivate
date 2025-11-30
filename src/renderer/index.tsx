@@ -11,6 +11,7 @@ import {
   setSaving,
   setLoading,
   setNewProjectDialog,
+  setWled,
 } from './redux/guiSlice'
 import {
   realtimeStore,
@@ -25,6 +26,7 @@ import { autoSave } from './autosave'
 import { getUndoGroup, undoAction, redoAction } from './controls/UndoRedo'
 import { load } from './menu/SaveLoad'
 import { getSaveConfig } from 'shared/save'
+import { WledConnectionInfo } from 'shared/connection'
 
 const theme = themes.dark()
 const muiTheme = createTheme({
@@ -39,6 +41,9 @@ autoSave(store)
 ipc_setup({
   on_dmx_connection_update: (payload) => {
     store.dispatch(setDmx(payload))
+  },
+  on_wled_connection_update: (payload: WledConnectionInfo) => {
+    store.dispatch(setWled(payload))
   },
   on_midi_connection_update: (payload) => {
     store.dispatch(setMidi(payload))

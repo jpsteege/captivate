@@ -8,6 +8,7 @@ interface Props2 {
   min?: number
   max?: number
   numberType?: 'int' | 'float'
+  helperText?: string
 }
 
 export default function NumberField({
@@ -17,6 +18,7 @@ export default function NumberField({
   min,
   max,
   numberType = 'int',
+  helperText,
 }: Props2) {
   return (
     <TextField
@@ -24,6 +26,7 @@ export default function NumberField({
       label={label}
       size="small"
       variant="standard"
+      helperText={helperText}
       onChange={(e) => {
         if (numberType === 'int') {
           onChange(clampMaybe(parseInt(e.target.value), min, max))

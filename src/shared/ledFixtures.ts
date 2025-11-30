@@ -5,10 +5,12 @@ import { getParam, Params } from './params'
 import { indexArray } from './util'
 import { Window2D_t } from './window'
 
-export const MAX_LED_COUNT = 367
+export const MAX_LED_COUNT = 490
+export type LedStripType = 'WLed'
+export const LED_STRIP_TYPES: LedStripType[] = ['WLed']
 
 export interface WLedFixture {
-  type: 'WLed'
+  type: LedStripType
   name: string
   mdns: string
   led_count: number
@@ -23,7 +25,10 @@ export function initLedFixture(): LedFixture {
     name: 'Name',
     mdns: 'Wled1',
     led_count: 100,
-    points: [{ x: 0.5, y: 0.5 }],
+    points: [
+      { x: 0.3, y: 0.5 },
+      { x: 0.7, y: 0.5 },
+    ],
   }
 }
 
@@ -34,6 +39,11 @@ export function getLedValues(
 ): BaseColors[] {
   let segments = pointsToSegments(ledFixture.points)
   let total_length = segments.reduce((acc, s) => acc + s.length, 0.0)
+  if (total_length <= 0) {
+    return indexArray(ledFixture.led_count).map(() =>
+      getBaseColorsFromHsv(0, 0, 0)
+    )
+  }
   let hue = getParam(params, 'hue')
   let saturation = getParam(params, 'saturation')
   let brightness = getParam(params, 'brightness')
