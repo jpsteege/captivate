@@ -52,6 +52,10 @@ export interface WledDevice_t {
   name: string
   ip: string | null
   lastSeen: number
+  version?: string
+  ledCount?: number
+  brand?: string
+  httpAccessible?: boolean
 }
 
 export interface WledConnectionInfo {

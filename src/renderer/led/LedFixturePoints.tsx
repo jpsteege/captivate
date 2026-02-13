@@ -6,6 +6,11 @@ interface Props {
   index: number
 }
 
+/**
+ * Renders the connecting lines between LED fixture points as an SVG polyline.
+ * Active fixtures are drawn thicker and brighter.
+ */
+
 function DynamicSvg({
   points,
   lineColor,

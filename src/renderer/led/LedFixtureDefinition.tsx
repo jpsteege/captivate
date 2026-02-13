@@ -2,15 +2,24 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
 import RemoveIcon from '@mui/icons-material/Remove'
 import { IconButton, TextField, Tooltip } from '@mui/material'
 import Dropdown from 'renderer/base/Dropdown'
+import GroupPicker from 'renderer/base/GroupPicker'
 import NumberField from 'renderer/base/NumberField'
+import Slider from 'renderer/base/Slider'
 import Select from 'renderer/base/Select'
+import ToggleButton from 'renderer/base/ToggleButton'
 import {
+  addLedFixtureGroup,
+  removeLedFixtureGroup,
   removeLedFixture,
   setActiveLedFixture,
+  setLedFixtureWindowEnabled,
+  setLedFixtureWindowPos,
+  setLedFixtureWindowWidth,
   updateActiveLedFixture,
 } from 'renderer/redux/dmxSlice'
 import { useDmxSelector, useTypedSelector } from 'renderer/redux/store'
 import { LED_STRIP_TYPES, LedFixture, MAX_LED_COUNT } from 'shared/ledFixtures'
+import { getSortedGroups } from 'shared/dmxUtil'
 import styled, { useTheme } from 'styled-components'
 import { useDispatch } from 'react-redux'
 
@@ -21,6 +30,7 @@ interface Props {
 export default function LedFixtureDefinition({ index }: Props) {
   let def = useDmxSelector((dmx) => dmx.led.ledFixtures[index])
   let isActive = useDmxSelector((dmx) => dmx.led.activeFixture === index)
+  const dmx = useDmxSelector((dmx) => dmx)
   const theme = useTheme()
   const wledConnections = useTypedSelector((state) => state.gui.wled)
 
@@ -68,6 +78,12 @@ export default function LedFixtureDefinition({ index }: Props) {
       : status === 'discovering'
       ? 'WLED device discovered, connecting...'
       : 'WLED device not found on network'
+  const availableGroups = getSortedGroups(
+    dmx.universe,
+    dmx.fixtureTypes,
+    dmx.fixtureTypesByID,
+    dmx.led.ledFixtures
+  )
 
   if (isActive)
     return (
@@ -123,6 +139,96 @@ export default function LedFixtureDefinition({ index }: Props) {
               max={MAX_LED_COUNT}
               helperText={`Max: ${MAX_LED_COUNT} LEDs`}
             />
+            <SectionHeader>Groups</SectionHeader>
+            <GroupPicker
+              groups={def.groups}
+              availableGroups={availableGroups}
+              addGroup={(g) => dispatch(addLedFixtureGroup(g))}
+              removeGroup={(g) => dispatch(removeLedFixtureGroup(g))}
+            />
+            <SectionHeader>Window</SectionHeader>
+            <WindowControlRow>
+              <ToggleButton
+                isEnabled={!!def.window?.x}
+                onClick={() =>
+                  dispatch(
+                    setLedFixtureWindowEnabled({
+                      dimension: 'x',
+                      enabled: !def.window?.x,
+                    })
+                  )
+                }
+              >
+                X
+              </ToggleButton>
+              <ToggleButton
+                isEnabled={!!def.window?.y}
+                onClick={() =>
+                  dispatch(
+                    setLedFixtureWindowEnabled({
+                      dimension: 'y',
+                      enabled: !def.window?.y,
+                    })
+                  )
+                }
+              >
+                Y
+              </ToggleButton>
+            </WindowControlRow>
+            {def.window?.x && (
+              <AxisControls>
+                <Label>X Position</Label>
+                <Slider
+                  value={def.window.x.pos}
+                  orientation="horizontal"
+                  onChange={(pos) =>
+                    dispatch(
+                      setLedFixtureWindowPos({ dimension: 'x', pos: pos })
+                    )
+                  }
+                />
+                <Label>X Width</Label>
+                <Slider
+                  value={def.window.x.width}
+                  orientation="horizontal"
+                  onChange={(width) =>
+                    dispatch(
+                      setLedFixtureWindowWidth({
+                        dimension: 'x',
+                        width: width,
+                      })
+                    )
+                  }
+                />
+              </AxisControls>
+            )}
+            {def.window?.y && (
+              <AxisControls>
+                <Label>Y Position</Label>
+                <Slider
+                  value={def.window.y.pos}
+                  orientation="horizontal"
+                  onChange={(pos) =>
+                    dispatch(
+                      setLedFixtureWindowPos({ dimension: 'y', pos: pos })
+                    )
+                  }
+                />
+                <Label>Y Width</Label>
+                <Slider
+                  value={def.window.y.width}
+                  orientation="horizontal"
+                  onChange={(width) =>
+                    dispatch(
+                      setLedFixtureWindowWidth({
+                        dimension: 'y',
+                        width: width,
+                      })
+                    )
+                  }
+                />
+              </AxisControls>
+            )}
           </FieldGroup>
         </Row>
       </ActiveRoot>
@@ -250,5 +356,27 @@ const InfoIconWrapper = styled.div`
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  color: ${(props) => props.theme.colors.text.secondary};
+`
+
+const SectionHeader = styled.div`
+  margin-top: 0.5rem;
+  font-weight: 600;
+`
+
+const WindowControlRow = styled.div`
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+`
+
+const AxisControls = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+`
+
+const Label = styled.div`
+  font-size: 0.8rem;
   color: ${(props) => props.theme.colors.text.secondary};
 `

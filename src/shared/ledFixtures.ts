@@ -1,6 +1,6 @@
 import { distanceBetween, pLerp, Point } from '../math/point'
 import { BaseColors, getBaseColorsFromHsv } from './baseColors'
-import { getMovingWindow, getWindowMultiplier2D } from './dmxUtil'
+import { getMovingWindow, getWindowMultiplier } from './dmxUtil'
 import { getParam, Params } from './params'
 import { indexArray } from './util'
 import { Window2D_t } from './window'
@@ -15,6 +15,8 @@ export interface WLedFixture {
   mdns: string
   led_count: number
   points: Point[] // 0 to 1 x and y
+  groups: string[]
+  window?: Window2D_t
 }
 
 export type LedFixture = WLedFixture
@@ -29,6 +31,8 @@ export function initLedFixture(): LedFixture {
       { x: 0.3, y: 0.5 },
       { x: 0.7, y: 0.5 },
     ],
+    groups: [],
+    window: undefined,
   }
 }
 
@@ -73,7 +77,13 @@ export function getLedValues(
   }, [])
 
   return ledWindows.map((ledWindow) => {
-    let windowMultiplier = getWindowMultiplier2D(ledWindow, movingWindow)
+    const useX =
+      ledFixture.window === undefined || ledFixture.window.x !== undefined
+    const multX = useX ? getWindowMultiplier(ledWindow.x, movingWindow.x) : 1.0
+    const useY =
+      ledFixture.window === undefined || ledFixture.window.y !== undefined
+    const multY = useY ? getWindowMultiplier(ledWindow.y, movingWindow.y) : 1.0
+    const windowMultiplier = multX * multY
 
     return getBaseColorsFromHsv(
       hue,

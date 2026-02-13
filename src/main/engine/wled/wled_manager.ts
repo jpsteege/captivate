@@ -1,5 +1,8 @@
 import { getLedValues } from '../../../shared/ledFixtures'
+import { BaseColors } from '../../../shared/baseColors'
 import { WledConnectionInfo } from '../../../shared/connection'
+import { getLedFixturesInGroups } from '../../../shared/dmxUtil'
+import { indexArray, zip } from '../../../shared/util'
 import { EngineContext } from '../engineContext'
 import WledDevice from './wled_device'
 
@@ -25,25 +28,72 @@ export default class WledManager {
       if (!state.gui.ledEnabled) return
 
       const rtState = this.c.realtimeState()
-      if (
-        rtState.splitStates.length === 0 ||
-        !rtState.splitStates[0]?.outputParams
-      )
-        return
+      if (rtState.splitStates.length === 0) return
+
+      const scenes = state.control.light
+      const activeScene = scenes.byId[scenes.active]
+      if (!activeScene) return
+
+      const ledOutputs = new Map<string, BaseColors[]>()
+
+      for (const [splitState, splitScene] of zip(
+        rtState.splitStates,
+        activeScene.splitScenes
+      )) {
+        if (!splitState?.outputParams) continue
+
+        const matchingFixtures = getLedFixturesInGroups(
+          state.dmx.led.ledFixtures,
+          splitScene.groups
+        )
+
+        for (const fixture of matchingFixtures) {
+          const colors = getLedValues(
+            splitState.outputParams,
+            fixture,
+            state.control.master
+          )
+
+          if (!ledOutputs.has(fixture.mdns)) {
+            ledOutputs.set(
+              fixture.mdns,
+              indexArray(fixture.led_count).map(() => ({
+                red: 0,
+                green: 0,
+                blue: 0,
+              }))
+            )
+          }
+
+          const existing = ledOutputs.get(fixture.mdns)!
+          colors.forEach((color, i) => {
+            existing[i] = this.maxBlendColors(existing[i], color)
+          })
+        }
+      }
 
       for (const fixture of state.dmx.led.ledFixtures) {
+        const colors =
+          ledOutputs.get(fixture.mdns) ??
+          indexArray(fixture.led_count).map(() => ({
+            red: 0,
+            green: 0,
+            blue: 0,
+          }))
         const device = this.devices[fixture.mdns]
         if (device !== undefined) {
-          device.broadcast(
-            getLedValues(
-              rtState.splitStates[0].outputParams,
-              fixture,
-              state.control.master
-            )
-          )
+          device.broadcast(colors)
         }
       }
     }, 1000 / 60)
+  }
+
+  private maxBlendColors(a: BaseColors, b: BaseColors): BaseColors {
+    return {
+      red: Math.max(a.red, b.red),
+      green: Math.max(a.green, b.green),
+      blue: Math.max(a.blue, b.blue),
+    }
   }
 
   private updateDevices() {
