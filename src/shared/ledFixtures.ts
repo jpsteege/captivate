@@ -8,11 +8,14 @@ import { Window2D_t } from './window'
 export const MAX_LED_COUNT = 490
 export type LedStripType = 'WLed'
 export const LED_STRIP_TYPES: LedStripType[] = ['WLed']
+export type WledProtocol = 'DDP' | 'UDP'
+export const WLED_PROTOCOLS: WledProtocol[] = ['DDP', 'UDP']
 
 export interface WLedFixture {
   type: LedStripType
   name: string
   mdns: string
+  protocol: WledProtocol
   led_count: number
   points: Point[] // 0 to 1 x and y
   groups: string[]
@@ -26,6 +29,7 @@ export function initLedFixture(): LedFixture {
     type: 'WLed',
     name: 'Name',
     mdns: 'Wled1',
+    protocol: 'DDP',
     led_count: 100,
     points: [
       { x: 0.3, y: 0.5 },

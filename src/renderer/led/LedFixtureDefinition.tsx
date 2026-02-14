@@ -18,13 +18,51 @@ import {
   updateActiveLedFixture,
 } from 'renderer/redux/dmxSlice'
 import { useDmxSelector, useTypedSelector } from 'renderer/redux/store'
-import { LED_STRIP_TYPES, LedFixture, MAX_LED_COUNT } from 'shared/ledFixtures'
+import {
+  LED_STRIP_TYPES,
+  LedFixture,
+  MAX_LED_COUNT,
+  WLED_PROTOCOLS,
+  WledProtocol,
+} from 'shared/ledFixtures'
 import { getSortedGroups } from 'shared/dmxUtil'
 import styled, { useTheme } from 'styled-components'
 import { useDispatch } from 'react-redux'
 
 interface Props {
   index: number
+}
+
+function getRecommendedProtocol(version: string | undefined): WledProtocol | null {
+  if (!version) return null
+
+  const match = version.match(/(\d+)\.(\d+)/)
+  if (!match) return null
+
+  const major = Number(match[1])
+  const minor = Number(match[2])
+
+  if (Number.isNaN(major) || Number.isNaN(minor)) return null
+  if (major > 0 || (major === 0 && minor >= 13)) return 'DDP'
+  return 'UDP'
+}
+
+function getProtocolRecommendation(
+  version: string | undefined,
+  currentProtocol: WledProtocol
+): string {
+  const fallbackMessage =
+    'Protocol selection: DDP recommended for WLED 0.13+, UDP for older versions'
+  if (!version) return fallbackMessage
+
+  const recommendedProtocol = getRecommendedProtocol(version)
+  if (!recommendedProtocol) return fallbackMessage
+
+  if (currentProtocol === recommendedProtocol) {
+    return `✓ Optimal protocol for WLED ${version}`
+  }
+
+  return `⚠ Consider switching to ${recommendedProtocol} for WLED ${version}`
 }
 
 export default function LedFixtureDefinition({ index }: Props) {
@@ -64,6 +102,11 @@ export default function LedFixtureDefinition({ index }: Props) {
   const fixtureConnection = wledConnections.available.find(
     (d) => d.mdns === def.mdns
   )
+  const version = fixtureConnection?.version
+  const recommendedProtocol = getRecommendedProtocol(version)
+  const protocolRecommendation = getProtocolRecommendation(version, def.protocol)
+  const isProtocolOptimal =
+    recommendedProtocol !== null && def.protocol === recommendedProtocol
   const isConnected = wledConnections.connected.includes(def.mdns)
   const isDiscovered =
     !!fixtureConnection && (fixtureConnection.lastSeen ?? 0) > 0
@@ -110,6 +153,28 @@ export default function LedFixtureDefinition({ index }: Props) {
                 onChange={(newType) => setField('type', newType)}
                 style={{ minWidth: '8rem' }}
               />
+              <ProtocolField>
+                <Select
+                  label="Protocol"
+                  val={def.protocol}
+                  items={WLED_PROTOCOLS}
+                  onChange={(newProtocol) => setField('protocol', newProtocol)}
+                  style={{ minWidth: '8rem' }}
+                />
+                <Tooltip title={protocolRecommendation}>
+                  <InfoIconWrapper>
+                    <InfoOutlinedIcon fontSize="small" />
+                  </InfoIconWrapper>
+                </Tooltip>
+                {version && recommendedProtocol && (
+                  <ProtocolRecommendation $isOptimal={isProtocolOptimal}>
+                    {isProtocolOptimal ? '✓' : '⚠'}{' '}
+                    {isProtocolOptimal
+                      ? `Optimal for WLED ${version}`
+                      : `${recommendedProtocol} recommended for WLED ${version}`}
+                  </ProtocolRecommendation>
+                )}
+              </ProtocolField>
             </FieldRow>
             <FieldRow>
               <MdnsField>
@@ -236,13 +301,17 @@ export default function LedFixtureDefinition({ index }: Props) {
 
   return (
     <InactiveRoot onClick={() => dispatch(setActiveLedFixture(index))}>
-      <Dropdown
-        isOpen={false}
+      <div
         onClick={(e) => {
           e.stopPropagation()
           dispatch(setActiveLedFixture(index))
         }}
-      />
+      >
+        <Dropdown
+          isOpen={false}
+          onClick={() => dispatch(setActiveLedFixture(index))}
+        />
+      </div>
       <Tooltip title={statusTooltip}>
         <StatusDot $status={status} />
       </Tooltip>
@@ -251,6 +320,7 @@ export default function LedFixtureDefinition({ index }: Props) {
         <InfoRow>
           <Info>{`${def.led_count} LEDs`}</Info>
           <Info>{`mDNS: ${def.mdns}`}</Info>
+          <Info>{`Protocol: ${def.protocol}`}</Info>
         </InfoRow>
       </InactiveContent>
       <div style={{ flex: '1 0 0' }} />
@@ -325,6 +395,12 @@ const MdnsField = styled.div`
   width: 100%;
 `
 
+const ProtocolField = styled.div`
+  display: flex;
+  gap: 0.35rem;
+  align-items: center;
+`
+
 const InfoRow = styled.div`
   display: flex;
   gap: 0.75rem;
@@ -357,6 +433,13 @@ const InfoIconWrapper = styled.div`
   align-items: center;
   justify-content: center;
   color: ${(props) => props.theme.colors.text.secondary};
+`
+
+const ProtocolRecommendation = styled.div<{ $isOptimal: boolean }>`
+  font-size: 0.75rem;
+  color: ${(props) =>
+    props.$isOptimal ? '#4caf50' : props.theme.colors.text.warning};
+  white-space: nowrap;
 `
 
 const SectionHeader = styled.div`
