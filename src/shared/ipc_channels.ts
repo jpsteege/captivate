@@ -11,6 +11,7 @@ export default {
   open_visualizer: 'open_visualizer',
   get_local_filepaths: 'get_local_filepaths',
   main_command: 'main_command',
+  test_wled_connection: 'test_wled_connection',
 } as const
 
 export interface SetLinkEnabled {
@@ -66,3 +67,27 @@ interface NewProject {
   type: 'new-project'
 }
 export type MainCommand = Undo | Redo | Save | Load | NewProject
+
+export interface TestWledConnectionRequest {
+  mdns: string
+  testType: 'connection' | 'identify'
+}
+
+export interface TestWledConnectionResponse {
+  success: boolean
+  mdns: string
+  diagnostics: {
+    mdnsResolved: boolean
+    ip: string | null
+    httpAccessible: boolean
+    httpError?: string
+    packetSent: boolean
+    packetError?: string
+    deviceInfo?: {
+      version: string
+      ledCount: number
+      name: string
+      brand: string
+    }
+  }
+}

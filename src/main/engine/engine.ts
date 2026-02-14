@@ -76,6 +76,10 @@ export function getIpcCallbacks() {
   return _ipcCallbacks
 }
 
+export function getWledManager() {
+  return _wledManager
+}
+
 export function start(
   renderer: WebContents,
   visualizerContainer: VisualizerContainer

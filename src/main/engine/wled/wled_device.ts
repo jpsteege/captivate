@@ -4,6 +4,7 @@ import makeMdns from 'multicast-dns'
 import udpBuffer from './udp_buffer'
 import { BaseColors } from '../../../shared/baseColors'
 import { WledDevice_t } from '../../../shared/connection'
+import { TestWledConnectionResponse } from '../../../shared/ipc_channels'
 
 const mdns = makeMdns()
 const client = dgram.createSocket('udp4')
@@ -12,6 +13,7 @@ const WLED_PORT = 21324
 const MDNS_QUERY_TYPE = 'A'
 const WLED_CONNECTION_TIMEOUT_MS = 15000
 const WLED_HTTP_TIMEOUT_MS = 500
+const WLED_TEST_TIMEOUT_MS = 2000
 
 interface WledDeviceInfo {
   brand: string
@@ -42,6 +44,12 @@ export default class WledDevice {
   private cachedLedCount: number | null = null
   private cachedBrand: string | null = null
   private cachedDeviceName: string | null = null
+
+  private wait(ms: number): Promise<void> {
+    return new Promise((resolve) => {
+      setTimeout(resolve, ms)
+    })
+  }
 
   constructor(mdns_name: string) {
     this.baseMdns = mdns_name
@@ -188,6 +196,163 @@ export default class WledDevice {
 
   async getDeviceState(): Promise<any | null> {
     return this.httpRequest('json/state')
+  }
+
+  private httpRequestForTest(
+    endpoint: string,
+    timeout: number
+  ): Promise<{ data: any | null; error?: string }> {
+    return new Promise((resolve) => {
+      if (this.ip === null) {
+        resolve({ data: null, error: 'No IP resolved' })
+        return
+      }
+
+      const normalizedEndpoint = endpoint.startsWith('/')
+        ? endpoint.slice(1)
+        : endpoint
+      const req = http.get(
+        `http://${this.ip}/${normalizedEndpoint}`,
+        { timeout },
+        (res) => {
+          const statusCode = res.statusCode ?? 0
+          const chunks: Buffer[] = []
+
+          res.on('data', (chunk) => {
+            chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk))
+          })
+
+          res.on('end', () => {
+            if (statusCode < 200 || statusCode >= 300) {
+              resolve({ data: null, error: `HTTP ${statusCode}` })
+              return
+            }
+            const payload = Buffer.concat(chunks).toString('utf8')
+            try {
+              resolve({ data: JSON.parse(payload) })
+            } catch (_error) {
+              resolve({ data: null, error: 'Invalid JSON response' })
+            }
+          })
+        }
+      )
+
+      req.on('timeout', () => {
+        req.destroy(new Error('Request timeout'))
+      })
+
+      req.on('error', (error: NodeJS.ErrnoException) => {
+        resolve({ data: null, error: error.code ?? error.message })
+      })
+    })
+  }
+
+  private sendUdpTestPacket(colors: BaseColors[]): Promise<{ error?: string }> {
+    return new Promise((resolve) => {
+      if (this.ip === null) {
+        resolve({ error: 'No IP resolved' })
+        return
+      }
+      try {
+        client.send(udpBuffer(colors), WLED_PORT, this.ip, (err) => {
+          if (err) {
+            resolve({ error: err.message })
+            return
+          }
+          resolve({})
+        })
+      } catch (error) {
+        resolve({ error: error instanceof Error ? error.message : String(error) })
+      }
+    })
+  }
+
+  async testConnection(): Promise<TestWledConnectionResponse> {
+    const diagnostics: TestWledConnectionResponse['diagnostics'] = {
+      mdnsResolved: false,
+      ip: null,
+      httpAccessible: false,
+      packetSent: false,
+    }
+
+    mdns.query(this.mdns_name, MDNS_QUERY_TYPE)
+
+    const started = Date.now()
+    while (Date.now() - started < WLED_TEST_TIMEOUT_MS) {
+      if (this.ip !== null) break
+      await this.wait(100)
+    }
+
+    diagnostics.mdnsResolved = this.ip !== null
+    diagnostics.ip = this.ip
+
+    if (!diagnostics.mdnsResolved) {
+      diagnostics.httpError = 'mDNS resolution timed out'
+      diagnostics.packetError = 'No resolved IP for UDP test'
+      return {
+        success: false,
+        mdns: this.baseMdns,
+        diagnostics,
+      }
+    }
+
+    const httpResult = await this.httpRequestForTest(
+      '/json/info',
+      WLED_TEST_TIMEOUT_MS
+    )
+
+    if (httpResult.data !== null && typeof httpResult.data === 'object') {
+      diagnostics.httpAccessible = true
+      const info = httpResult.data
+      const version = typeof info.ver === 'string' ? info.ver : undefined
+      const ledCount =
+        info.leds && typeof info.leds === 'object' && typeof info.leds.count === 'number'
+          ? info.leds.count
+          : undefined
+      const name = typeof info.name === 'string' ? info.name : undefined
+      const brand = typeof info.brand === 'string' ? info.brand : undefined
+      if (
+        version !== undefined &&
+        ledCount !== undefined &&
+        name !== undefined &&
+        brand !== undefined
+      ) {
+        diagnostics.deviceInfo = { version, ledCount, name, brand }
+      }
+    } else {
+      diagnostics.httpError = httpResult.error ?? 'HTTP API request failed'
+    }
+
+    const packetResult = await this.sendUdpTestPacket([
+      { red: 255, green: 255, blue: 255 },
+    ])
+    diagnostics.packetSent = !packetResult.error
+    if (packetResult.error) {
+      diagnostics.packetError = packetResult.error
+    }
+
+    return {
+      success:
+        diagnostics.mdnsResolved &&
+        diagnostics.httpAccessible &&
+        diagnostics.packetSent,
+      mdns: this.baseMdns,
+      diagnostics,
+    }
+  }
+
+  async identify(): Promise<void> {
+    const totalFrames = 30
+    for (let i = 0; i < totalFrames; i += 1) {
+      setTimeout(() => {
+        const isRed = i % 2 === 0
+        this.broadcast([
+          isRed
+            ? { red: 255, green: 0, blue: 0 }
+            : { red: 255, green: 255, blue: 255 },
+        ])
+      }, i * 100)
+    }
   }
 
   private async checkHttpHealth(): Promise<boolean> {

@@ -28,10 +28,15 @@ import {
 import { getSortedGroups } from 'shared/dmxUtil'
 import styled, { useTheme } from 'styled-components'
 import { useDispatch } from 'react-redux'
+import { useState } from 'react'
+import { TestWledConnectionResponse } from 'shared/ipc_channels'
 
 interface Props {
   index: number
 }
+
+// @ts-ignore: Typescript doesn't recognize the globals set in "src/main/preload.js"
+const ipcRenderer = window.electron.ipcRenderer
 
 function getRecommendedProtocol(version: string | undefined): WledProtocol | null {
   if (!version) return null
@@ -73,6 +78,14 @@ export default function LedFixtureDefinition({ index }: Props) {
   const wledConnections = useTypedSelector((state) => state.gui.wled)
 
   const dispatch = useDispatch()
+  const [testStatus, setTestStatus] = useState<
+    'idle' | 'testing' | 'success' | 'error'
+  >('idle')
+  const [testDiagnostics, setTestDiagnostics] =
+    useState<TestWledConnectionResponse | null>(null)
+  const [identifyStatus, setIdentifyStatus] = useState<'idle' | 'identifying'>(
+    'idle'
+  )
 
   function setField<
     Key extends keyof LedFixture,
@@ -127,6 +140,36 @@ export default function LedFixtureDefinition({ index }: Props) {
     dmx.fixtureTypesByID,
     dmx.led.ledFixtures
   )
+
+  async function handleTestConnection() {
+    if (mdnsHasError) return
+    setTestStatus('testing')
+    setTestDiagnostics(null)
+    try {
+      const response = (await ipcRenderer.invoke('test_wled_connection', {
+        mdns: def.mdns,
+        testType: 'connection',
+      })) as TestWledConnectionResponse
+      setTestDiagnostics(response)
+      setTestStatus(response.success ? 'success' : 'error')
+    } catch (_error) {
+      setTestStatus('error')
+      setTestDiagnostics(null)
+    }
+  }
+
+  async function handleIdentify() {
+    if (mdnsHasError) return
+    setIdentifyStatus('identifying')
+    try {
+      await ipcRenderer.invoke('test_wled_connection', {
+        mdns: def.mdns,
+        testType: 'identify',
+      })
+    } finally {
+      setTimeout(() => setIdentifyStatus('idle'), 3000)
+    }
+  }
 
   if (isActive)
     return (
@@ -196,6 +239,66 @@ export default function LedFixtureDefinition({ index }: Props) {
                 </Tooltip>
               </MdnsField>
             </FieldRow>
+            <TestSection>
+              <TestButtonsRow>
+                <TestButton
+                  onClick={handleTestConnection}
+                  disabled={testStatus === 'testing' || mdnsHasError}
+                >
+                  {testStatus === 'testing' ? 'Testing...' : 'Test Connection'}
+                </TestButton>
+                <TestButton
+                  onClick={handleIdentify}
+                  disabled={identifyStatus === 'identifying' || mdnsHasError}
+                >
+                  {identifyStatus === 'identifying'
+                    ? 'Identifying...'
+                    : 'Identify Device'}
+                </TestButton>
+              </TestButtonsRow>
+              {testStatus === 'testing' && <Spinner />}
+              {testDiagnostics && (
+                <DiagnosticsList>
+                  <DiagnosticItem>
+                    <span>
+                      {testDiagnostics.diagnostics.mdnsResolved ? '✓' : '✗'}{' '}
+                      mDNS Resolution
+                      {testDiagnostics.diagnostics.ip
+                        ? ` (${testDiagnostics.diagnostics.ip})`
+                        : ''}
+                    </span>
+                  </DiagnosticItem>
+                  <DiagnosticItem>
+                    <span>
+                      {testDiagnostics.diagnostics.httpAccessible ? '✓' : '✗'}{' '}
+                      HTTP API Accessible
+                      {testDiagnostics.diagnostics.deviceInfo
+                        ? ` (WLED ${testDiagnostics.diagnostics.deviceInfo.version}, ${testDiagnostics.diagnostics.deviceInfo.ledCount} LEDs)`
+                        : ''}
+                    </span>
+                  </DiagnosticItem>
+                  {testDiagnostics.diagnostics.httpError && (
+                    <ErrorText>
+                      HTTP Error: {testDiagnostics.diagnostics.httpError}
+                    </ErrorText>
+                  )}
+                  <DiagnosticItem>
+                    <span>
+                      {testDiagnostics.diagnostics.packetSent ? '✓' : '✗'} Test
+                      Packet Sent
+                    </span>
+                  </DiagnosticItem>
+                  {testDiagnostics.diagnostics.packetError && (
+                    <ErrorText>
+                      Packet Error: {testDiagnostics.diagnostics.packetError}
+                    </ErrorText>
+                  )}
+                  {testDiagnostics.success && (
+                    <SuccessText>All connection checks passed.</SuccessText>
+                  )}
+                </DiagnosticsList>
+              )}
+            </TestSection>
             <NumberField
               label="LED Count"
               val={def.led_count}
@@ -462,4 +565,72 @@ const AxisControls = styled.div`
 const Label = styled.div`
   font-size: 0.8rem;
   color: ${(props) => props.theme.colors.text.secondary};
+`
+
+const TestSection = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  border: 1px solid ${(props) => props.theme.colors.divider};
+  border-radius: 0.25rem;
+  padding: 0.5rem;
+`
+
+const TestButtonsRow = styled.div`
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+`
+
+const TestButton = styled.button`
+  border: 1px solid ${(props) => props.theme.colors.divider};
+  background-color: ${(props) => props.theme.colors.bg.lighter};
+  color: ${(props) => props.theme.colors.text.primary};
+  border-radius: 0.25rem;
+  padding: 0.35rem 0.65rem;
+  cursor: pointer;
+
+  :disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+`
+
+const DiagnosticsList = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+`
+
+const DiagnosticItem = styled.div`
+  font-size: 0.85rem;
+  color: ${(props) => props.theme.colors.text.secondary};
+`
+
+const ErrorText = styled.div`
+  font-size: 0.8rem;
+  color: ${(props) => props.theme.colors.text.error};
+`
+
+const SuccessText = styled.div`
+  font-size: 0.8rem;
+  color: #4caf50;
+`
+
+const Spinner = styled.div`
+  width: 1rem;
+  height: 1rem;
+  border-radius: 50%;
+  border: 2px solid ${(props) => props.theme.colors.divider};
+  border-top-color: ${(props) => props.theme.colors.text.primary};
+  animation: spin 0.75s linear infinite;
+
+  @keyframes spin {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
+  }
 `

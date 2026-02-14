@@ -136,6 +136,10 @@ export default class WledManager {
     return { available, connected }
   }
 
+  getDevice(mdns: string) {
+    return this.devices[mdns]
+  }
+
   release() {
     for (const [_mdns, device] of Object.entries(this.devices)) {
       if (device !== undefined) {
