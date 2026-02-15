@@ -59,6 +59,7 @@ contextBridge.exposeInMainWorld('electron', {
         'load_file',
         'get_local_filepaths',
         'test_wled_connection',
+        'reset_wled_protocol',
       ]
       if (validChannels.includes(channel)) {
         return ipcRenderer.invoke(channel, ...args)

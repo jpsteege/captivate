@@ -3,6 +3,7 @@ import { BaseColors } from '../../../shared/baseColors'
 import { WledConnectionInfo } from '../../../shared/connection'
 import { getLedFixturesInGroups } from '../../../shared/dmxUtil'
 import { indexArray, zip } from '../../../shared/util'
+import { WledProtocol } from '../../../shared/ledFixtures'
 import { EngineContext } from '../engineContext'
 import WledDevice from './wled_device'
 
@@ -81,7 +82,7 @@ export default class WledManager {
             blue: 0,
           }))
         const device = this.devices[fixture.mdns]
-        if (device !== undefined) {
+        if (device !== undefined && device.isConnected()) {
           device.broadcast(colors)
         }
       }
@@ -105,9 +106,14 @@ export default class WledManager {
     for (const fixture of state.dmx.led.ledFixtures) {
       const device = this.devices[fixture.mdns]
       if (device === undefined) {
-        this.devices[fixture.mdns] = new WledDevice(fixture.mdns)
+        this.devices[fixture.mdns] = new WledDevice(fixture.mdns, fixture.protocol)
+      } else if (device.getConfiguredProtocol() !== fixture.protocol) {
+        this.handleProtocolChange(fixture.mdns, fixture.protocol)
       } else {
-        device.refresh()
+        const connectionState = device.getConnectionState()
+        if (connectionState === 'error' || connectionState === 'disconnected') {
+          device.refresh()
+        }
       }
     }
 
@@ -120,6 +126,16 @@ export default class WledManager {
     }
 
     this.c.onWledConnectionUpdate?.(this.getConnectionStatus())
+  }
+
+  handleProtocolChange(mdns: string, newProtocol: WledProtocol): void {
+    const existingDevice = this.devices[mdns]
+    if (existingDevice !== undefined) {
+      existingDevice.release()
+      delete this.devices[mdns]
+    }
+
+    this.devices[mdns] = new WledDevice(mdns, newProtocol)
   }
 
   getConnectionStatus(): WledConnectionInfo {

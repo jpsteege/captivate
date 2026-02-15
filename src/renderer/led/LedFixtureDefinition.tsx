@@ -29,7 +29,10 @@ import { getSortedGroups } from 'shared/dmxUtil'
 import styled, { useTheme } from 'styled-components'
 import { useDispatch } from 'react-redux'
 import { useState } from 'react'
-import { TestWledConnectionResponse } from 'shared/ipc_channels'
+import {
+  ResetWledProtocolResponse,
+  TestWledConnectionResponse,
+} from 'shared/ipc_channels'
 
 interface Props {
   index: number
@@ -68,6 +71,27 @@ function getProtocolRecommendation(
   }
 
   return `⚠ Consider switching to ${recommendedProtocol} for WLED ${version}`
+}
+
+type Status = 'connected' | 'discovering' | 'disconnected' | 'error'
+
+function getConnectionStateTooltip(status: Status): string {
+  if (status === 'connected') return 'Connected to WLED device'
+  if (status === 'discovering') return 'Searching for WLED device on network'
+  if (status === 'error') return 'Connection error while communicating with WLED'
+  return 'WLED device not found on network'
+}
+
+function getLatencyColor(latency: number, theme: any): string {
+  if (latency < 50) return '#4caf50'
+  if (latency <= 200) return theme.colors.text.warning
+  return '#f44336'
+}
+
+function getPacketLossColor(packetLossRate: number, theme: any): string {
+  if (packetLossRate < 0.05) return '#4caf50'
+  if (packetLossRate <= 0.2) return theme.colors.text.warning
+  return '#f44336'
 }
 
 export default function LedFixtureDefinition({ index }: Props) {
@@ -120,20 +144,8 @@ export default function LedFixtureDefinition({ index }: Props) {
   const protocolRecommendation = getProtocolRecommendation(version, def.protocol)
   const isProtocolOptimal =
     recommendedProtocol !== null && def.protocol === recommendedProtocol
-  const isConnected = wledConnections.connected.includes(def.mdns)
-  const isDiscovered =
-    !!fixtureConnection && (fixtureConnection.lastSeen ?? 0) > 0
-  const status: Status = isConnected
-    ? 'connected'
-    : isDiscovered
-    ? 'discovering'
-    : 'disconnected'
-  const statusTooltip =
-    status === 'connected'
-      ? 'Connected to WLED device'
-      : status === 'discovering'
-      ? 'WLED device discovered, connecting...'
-      : 'WLED device not found on network'
+  const status: Status = fixtureConnection?.connectionState ?? 'disconnected'
+  const statusTooltip = getConnectionStateTooltip(status)
   const availableGroups = getSortedGroups(
     dmx.universe,
     dmx.fixtureTypes,
@@ -155,6 +167,20 @@ export default function LedFixtureDefinition({ index }: Props) {
     } catch (_error) {
       setTestStatus('error')
       setTestDiagnostics(null)
+    }
+  }
+
+  async function handleResetProtocol() {
+    if (mdnsHasError) return
+    try {
+      const response = (await ipcRenderer.invoke('reset_wled_protocol', {
+        mdns: def.mdns,
+      })) as ResetWledProtocolResponse
+      if (!response.success) {
+        console.warn('Failed to reset WLED protocol', response)
+      }
+    } catch (error) {
+      console.warn('Failed to reset WLED protocol', error)
     }
   }
 
@@ -299,6 +325,48 @@ export default function LedFixtureDefinition({ index }: Props) {
                 </DiagnosticsList>
               )}
             </TestSection>
+            <QualityMetricsSection>
+              <QualityHeader>Connection Quality</QualityHeader>
+              <MetricsRow>
+                <ConnectionStateBadge $status={status}>
+                  {status}
+                </ConnectionStateBadge>
+                <ProtocolStatusIndicator
+                  $hasFallback={!!fixtureConnection?.protocolFallbackOccurred}
+                >
+                  Protocol: {fixtureConnection?.currentProtocol ?? def.protocol}
+                  {fixtureConnection?.protocolFallbackOccurred
+                    ? ' (fallback active)'
+                    : ''}
+                </ProtocolStatusIndicator>
+              </MetricsRow>
+              <MetricsRow>
+                <PacketLossIndicator
+                  $color={getPacketLossColor(
+                    fixtureConnection?.packetLossRate ?? 0,
+                    theme
+                  )}
+                >
+                  Loss:{' '}
+                  {fixtureConnection?.packetLossRate !== undefined
+                    ? `${(fixtureConnection.packetLossRate * 100).toFixed(1)}%`
+                    : 'N/A'}
+                </PacketLossIndicator>
+                <LatencyIndicator
+                  $color={getLatencyColor(fixtureConnection?.latency ?? 0, theme)}
+                >
+                  Latency:{' '}
+                  {fixtureConnection?.latency !== undefined
+                    ? `${fixtureConnection.latency}ms`
+                    : 'N/A'}
+                </LatencyIndicator>
+              </MetricsRow>
+              {fixtureConnection?.protocolFallbackOccurred && (
+                <ResetProtocolButton onClick={handleResetProtocol}>
+                  Reset Protocol
+                </ResetProtocolButton>
+              )}
+            </QualityMetricsSection>
             <NumberField
               label="LED Count"
               val={def.led_count}
@@ -423,7 +491,16 @@ export default function LedFixtureDefinition({ index }: Props) {
         <InfoRow>
           <Info>{`${def.led_count} LEDs`}</Info>
           <Info>{`mDNS: ${def.mdns}`}</Info>
-          <Info>{`Protocol: ${def.protocol}`}</Info>
+          <Info>{`Protocol: ${fixtureConnection?.currentProtocol ?? def.protocol}`}</Info>
+          {fixtureConnection?.packetLossRate !== undefined && (
+            <Info>{`Loss: ${(fixtureConnection.packetLossRate * 100).toFixed(1)}%`}</Info>
+          )}
+          {fixtureConnection?.latency !== undefined && (
+            <Info>{`Latency: ${fixtureConnection.latency}ms`}</Info>
+          )}
+          {fixtureConnection?.protocolFallbackOccurred && (
+            <Info>{'⚠ Using UDP fallback'}</Info>
+          )}
         </InfoRow>
       </InactiveContent>
       <div style={{ flex: '1 0 0' }} />
@@ -516,8 +593,6 @@ const InactiveContent = styled.div`
   flex-direction: column;
   gap: 0.25rem;
 `
-type Status = 'connected' | 'discovering' | 'disconnected'
-
 const StatusDot = styled.div<{ $status: Status }>`
   width: 0.6rem;
   height: 0.6rem;
@@ -526,6 +601,7 @@ const StatusDot = styled.div<{ $status: Status }>`
   background-color: ${(props) => {
     if (props.$status === 'connected') return '#4caf50'
     if (props.$status === 'discovering') return props.theme.colors.text.warning
+    if (props.$status === 'error') return '#f44336'
     return props.theme.colors.text.secondary
   }};
   border: 1px solid ${(props) => props.theme.colors.bg.darker};
@@ -633,4 +709,65 @@ const Spinner = styled.div`
       transform: rotate(360deg);
     }
   }
+`
+
+const QualityMetricsSection = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  border: 1px solid ${(props) => props.theme.colors.divider};
+  border-radius: 0.25rem;
+  padding: 0.5rem;
+`
+
+const QualityHeader = styled.div`
+  font-size: 0.85rem;
+  font-weight: 600;
+`
+
+const MetricsRow = styled.div`
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  align-items: center;
+`
+
+const ConnectionStateBadge = styled.div<{ $status: Status }>`
+  border-radius: 0.2rem;
+  padding: 0.2rem 0.45rem;
+  font-size: 0.75rem;
+  text-transform: capitalize;
+  color: #ffffff;
+  background-color: ${(props) => {
+    if (props.$status === 'connected') return '#4caf50'
+    if (props.$status === 'discovering') return props.theme.colors.text.warning
+    if (props.$status === 'error') return '#f44336'
+    return props.theme.colors.text.secondary
+  }};
+`
+
+const PacketLossIndicator = styled.div<{ $color: string }>`
+  font-size: 0.8rem;
+  color: ${(props) => props.$color};
+`
+
+const LatencyIndicator = styled.div<{ $color: string }>`
+  font-size: 0.8rem;
+  color: ${(props) => props.$color};
+`
+
+const ProtocolStatusIndicator = styled.div<{ $hasFallback: boolean }>`
+  font-size: 0.8rem;
+  color: ${(props) =>
+    props.$hasFallback ? props.theme.colors.text.warning : props.theme.colors.text.secondary};
+`
+
+const ResetProtocolButton = styled.button`
+  border: 1px solid ${(props) => props.theme.colors.divider};
+  background-color: ${(props) => props.theme.colors.bg.lighter};
+  color: ${(props) => props.theme.colors.text.primary};
+  border-radius: 0.25rem;
+  padding: 0.35rem 0.65rem;
+  cursor: pointer;
+  width: fit-content;
 `

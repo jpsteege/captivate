@@ -1,3 +1,5 @@
+import { WledProtocol } from './ledFixtures'
+
 export type ConnectionId = string
 
 export type DmxUsbDeviceType = 'DmxUsbPro' | 'OpenDmxUsb'
@@ -56,6 +58,12 @@ export interface WledDevice_t {
   ledCount?: number
   brand?: string
   httpAccessible?: boolean
+  connectionState: 'disconnected' | 'discovering' | 'connected' | 'error'
+  packetLossRate?: number
+  lastSuccessfulTransmission?: number
+  latency?: number
+  currentProtocol?: WledProtocol
+  protocolFallbackOccurred?: boolean
 }
 
 export interface WledConnectionInfo {

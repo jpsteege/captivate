@@ -5,15 +5,21 @@ import udpBuffer from './udp_buffer'
 import { BaseColors } from '../../../shared/baseColors'
 import { WledDevice_t } from '../../../shared/connection'
 import { TestWledConnectionResponse } from '../../../shared/ipc_channels'
+import { WledProtocol } from '../../../shared/ledFixtures'
 
 const mdns = makeMdns()
 const client = dgram.createSocket('udp4')
 
-const WLED_PORT = 21324
+const UDP_WLED_PORT = 21324
+const DDP_WLED_PORT = 4048
 const MDNS_QUERY_TYPE = 'A'
 const WLED_CONNECTION_TIMEOUT_MS = 15000
 const WLED_HTTP_TIMEOUT_MS = 500
 const WLED_TEST_TIMEOUT_MS = 2000
+const INITIAL_BACKOFF_MS = 1000
+const FALLBACK_FAILURE_THRESHOLD = 10
+
+type ConnectionState = 'disconnected' | 'discovering' | 'connected' | 'error'
 
 interface WledDeviceInfo {
   brand: string
@@ -45,23 +51,44 @@ export default class WledDevice {
   private cachedBrand: string | null = null
   private cachedDeviceName: string | null = null
 
+  private connectionState: ConnectionState = 'disconnected'
+  private mdnsBackoffMs = INITIAL_BACKOFF_MS
+  private maxBackoffMs = 30000
+  private consecutiveFailures = 0
+  private lastMdnsQueryAt: number | null = null
+
+  private totalPacketsSent = 0
+  private failedPacketsSent = 0
+  private lastSuccessfulBroadcast: number | null = null
+  private lastBroadcastLatency: number | null = null
+
+  private configuredProtocol: WledProtocol
+  private activeProtocol: WledProtocol
+  private protocolFallbackOccurred = false
+
   private wait(ms: number): Promise<void> {
     return new Promise((resolve) => {
       setTimeout(resolve, ms)
     })
   }
 
-  constructor(mdns_name: string) {
+  constructor(mdns_name: string, protocol: WledProtocol) {
     this.baseMdns = mdns_name
     this.mdns_name = `${mdns_name}.local`
+    this.configuredProtocol = protocol
+    this.activeProtocol = protocol
 
     this.listener = (res: makeMdns.ResponsePacket) => {
       if (res.answers.length > 0) {
-        let answer = res.answers[0]
-        if (answer.type === MDNS_QUERY_TYPE && answer.name === this.mdns_name) {
+        for (const answer of res.answers) {
+          if (answer.type !== MDNS_QUERY_TYPE || answer.name !== this.mdns_name) {
+            continue
+          }
+
           const wasNull = this.ip === null
+          const previousState = this.connectionState
           if (this.ip !== answer.data) {
-            this.ip = answer.data
+            this.ip = String(answer.data)
             console.log(`WLed ip updated ${this.mdns_name} -> ${this.ip}`)
           }
           if (this.ip !== null) {
@@ -74,6 +101,11 @@ export default class WledDevice {
             })
           }
           this.lastSeen = Date.now()
+          this.consecutiveFailures = 0
+          if (previousState === 'disconnected' || previousState === 'error') {
+            this.resetProtocol()
+          }
+          this.transitionState('connected')
         }
       }
     }
@@ -83,9 +115,68 @@ export default class WledDevice {
     this.refresh()
   }
 
+  private transitionState(newState: ConnectionState): void {
+    if (this.connectionState !== newState) {
+      console.log('WLED connection state transition', {
+        mdns: this.baseMdns,
+        from: this.connectionState,
+        to: newState,
+      })
+    }
+
+    this.connectionState = newState
+
+    if (newState === 'connected') {
+      this.mdnsBackoffMs = INITIAL_BACKOFF_MS
+      return
+    }
+
+    if (newState === 'error' || newState === 'disconnected') {
+      this.incrementBackoff()
+    }
+  }
+
+  private incrementBackoff(): void {
+    this.mdnsBackoffMs = Math.min(this.mdnsBackoffMs * 2, this.maxBackoffMs)
+  }
+
+  private createDdpBuffer(colors: BaseColors[]): Buffer {
+    const dataLength = colors.length * 3
+    const buffer = Buffer.alloc(10 + dataLength)
+
+    buffer[0] = 0x41
+    buffer[1] = 0x00
+    buffer[2] = 0x01
+    buffer[3] = 0x01
+    buffer[4] = 0x00
+    buffer[5] = 0x00
+    buffer[6] = 0x00
+    buffer[7] = 0x00
+    buffer.writeUInt16BE(dataLength, 8)
+
+    for (let i = 0; i < colors.length; i += 1) {
+      const { red, green, blue } = colors[i]
+      const offset = 10 + i * 3
+      buffer[offset] = Math.max(0, Math.min(255, Math.round(red * 255)))
+      buffer[offset + 1] = Math.max(0, Math.min(255, Math.round(green * 255)))
+      buffer[offset + 2] = Math.max(0, Math.min(255, Math.round(blue * 255)))
+    }
+
+    return buffer
+  }
+
   /// Re-queries mdns to update the device ip address
   refresh() {
-    mdns.query(this.mdns_name, MDNS_QUERY_TYPE)
+    const now = Date.now()
+    if (
+      this.lastMdnsQueryAt === null ||
+      now - this.lastMdnsQueryAt >= this.mdnsBackoffMs
+    ) {
+      mdns.query(this.mdns_name, MDNS_QUERY_TYPE)
+      this.lastMdnsQueryAt = now
+      this.transitionState('discovering')
+    }
+
     void this.checkHttpHealth()
   }
 
@@ -254,7 +345,7 @@ export default class WledDevice {
         return
       }
       try {
-        client.send(udpBuffer(colors), WLED_PORT, this.ip, (err) => {
+        client.send(udpBuffer(colors), UDP_WLED_PORT, this.ip, (err) => {
           if (err) {
             resolve({ error: err.message })
             return
@@ -365,6 +456,8 @@ export default class WledDevice {
         })
         this.httpWarningIssued = true
       }
+      this.consecutiveFailures += 1
+      this.transitionState('disconnected')
       return false
     }
 
@@ -384,6 +477,8 @@ export default class WledDevice {
         })
         this.httpWarningIssued = true
       }
+      this.consecutiveFailures += 1
+      this.transitionState('error')
       return false
     }
 
@@ -393,6 +488,8 @@ export default class WledDevice {
     this.cachedLedCount = info.ledCount
     this.lastHttpSuccess = Date.now()
     this.httpWarningIssued = false
+    this.consecutiveFailures = 0
+    this.transitionState('connected')
 
     console.log('WLED HTTP health check success', {
       mdns: this.mdns_name,
@@ -406,7 +503,27 @@ export default class WledDevice {
     return true
   }
 
-  /// Sends colors to each led via UDP
+  getPacketLossRate(): number {
+    return this.totalPacketsSent > 0
+      ? this.failedPacketsSent / this.totalPacketsSent
+      : 0
+  }
+
+  resetProtocol(): void {
+    this.activeProtocol = this.configuredProtocol
+    this.protocolFallbackOccurred = false
+    this.consecutiveFailures = 0
+  }
+
+  getConfiguredProtocol(): WledProtocol {
+    return this.configuredProtocol
+  }
+
+  getConnectionState(): ConnectionState {
+    return this.connectionState
+  }
+
+  /// Sends colors to each led via selected protocol
   broadcast(colors: BaseColors[]) {
     if (this.ip === null) {
       if (!this.noIpWarningIssued) {
@@ -418,20 +535,79 @@ export default class WledDevice {
       return
     }
 
+    const sendStartedAt = Date.now()
+    this.totalPacketsSent += 1
+
+    const payload =
+      this.activeProtocol === 'DDP' ? this.createDdpBuffer(colors) : udpBuffer(colors)
+    const port = this.activeProtocol === 'DDP' ? DDP_WLED_PORT : UDP_WLED_PORT
+
     try {
-      client.send(udpBuffer(colors), WLED_PORT, this.ip, (err) => {
+      client.send(payload, port, this.ip, (err) => {
         if (err) {
-          console.error('WLED UDP Send Error', {
+          this.failedPacketsSent += 1
+          this.consecutiveFailures += 1
+          this.transitionState('error')
+
+          if (this.consecutiveFailures >= FALLBACK_FAILURE_THRESHOLD) {
+            if (this.activeProtocol === 'DDP') {
+              this.activeProtocol = 'UDP'
+              this.protocolFallbackOccurred = true
+              this.consecutiveFailures = 0
+              console.warn('WLED protocol fallback triggered', {
+                mdns: this.baseMdns,
+                configuredProtocol: this.configuredProtocol,
+                activeProtocol: this.activeProtocol,
+              })
+            } else {
+              console.error('WLED transmission failed repeatedly while using UDP', {
+                mdns: this.baseMdns,
+                failures: this.consecutiveFailures,
+              })
+            }
+          }
+
+          console.error('WLED Send Error', {
             mdns: this.mdns_name,
             ip: this.ip,
+            protocol: this.activeProtocol,
             error: err,
           })
+          return
         }
+
+        this.lastSuccessfulBroadcast = Date.now()
+        this.lastBroadcastLatency = this.lastSuccessfulBroadcast - sendStartedAt
+        this.consecutiveFailures = 0
+        this.transitionState('connected')
       })
     } catch (err) {
-      console.error('WLED UDP Send Error', {
+      this.failedPacketsSent += 1
+      this.consecutiveFailures += 1
+      this.transitionState('error')
+
+      if (this.consecutiveFailures >= FALLBACK_FAILURE_THRESHOLD) {
+        if (this.activeProtocol === 'DDP') {
+          this.activeProtocol = 'UDP'
+          this.protocolFallbackOccurred = true
+          this.consecutiveFailures = 0
+          console.warn('WLED protocol fallback triggered', {
+            mdns: this.baseMdns,
+            configuredProtocol: this.configuredProtocol,
+            activeProtocol: this.activeProtocol,
+          })
+        } else {
+          console.error('WLED transmission failed repeatedly while using UDP', {
+            mdns: this.baseMdns,
+            failures: this.consecutiveFailures,
+          })
+        }
+      }
+
+      console.error('WLED Send Error', {
         mdns: this.mdns_name,
         ip: this.ip,
+        protocol: this.activeProtocol,
         error: err,
       })
     }
@@ -442,6 +618,10 @@ export default class WledDevice {
   }
 
   isConnected() {
+    if (this.connectionState !== 'connected') {
+      return false
+    }
+
     const now = Date.now()
     const mdnsConnected =
       this.ip !== null &&
@@ -469,6 +649,12 @@ export default class WledDevice {
       ledCount: this.cachedLedCount ?? undefined,
       brand: this.cachedBrand ?? undefined,
       httpAccessible,
+      connectionState: this.connectionState,
+      packetLossRate: this.getPacketLossRate(),
+      lastSuccessfulTransmission: this.lastSuccessfulBroadcast ?? undefined,
+      latency: this.lastBroadcastLatency ?? undefined,
+      currentProtocol: this.activeProtocol,
+      protocolFallbackOccurred: this.protocolFallbackOccurred,
     }
   }
 }

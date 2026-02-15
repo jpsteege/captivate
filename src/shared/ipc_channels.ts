@@ -12,6 +12,7 @@ export default {
   get_local_filepaths: 'get_local_filepaths',
   main_command: 'main_command',
   test_wled_connection: 'test_wled_connection',
+  reset_wled_protocol: 'reset_wled_protocol',
 } as const
 
 export interface SetLinkEnabled {
@@ -90,4 +91,14 @@ export interface TestWledConnectionResponse {
       brand: string
     }
   }
+}
+
+export interface ResetWledProtocolRequest {
+  mdns: string
+}
+
+export interface ResetWledProtocolResponse {
+  success: boolean
+  mdns: string
+  error?: string
 }

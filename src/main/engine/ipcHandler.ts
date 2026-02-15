@@ -4,6 +4,8 @@ import ipcChannels, {
   MainCommand,
   TestWledConnectionRequest,
   TestWledConnectionResponse,
+  ResetWledProtocolRequest,
+  ResetWledProtocolResponse,
 } from '../../shared/ipc_channels'
 import ipcChannelsVisualizer from '../../visualizer/ipcChannels'
 import { CleanReduxState } from '../../renderer/redux/store'
@@ -185,5 +187,30 @@ ipcMain.handle(
     }
 
     return device.testConnection()
+  }
+)
+
+ipcMain.handle(
+  ipcChannels.reset_wled_protocol,
+  async (
+    _event,
+    request: ResetWledProtocolRequest
+  ): Promise<ResetWledProtocolResponse> => {
+    const wledManager = getWledManager()
+    const device = wledManager?.getDevice(request.mdns)
+
+    if (!device) {
+      return {
+        success: false,
+        mdns: request.mdns,
+        error: 'Device not found in WLED manager',
+      }
+    }
+
+    device.resetProtocol()
+    return {
+      success: true,
+      mdns: request.mdns,
+    }
   }
 )
