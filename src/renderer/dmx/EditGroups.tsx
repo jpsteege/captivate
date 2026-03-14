@@ -21,7 +21,8 @@ export default function EditGroups({}: Props) {
   const allGroups = getSortedGroups(
     dmx.universe,
     dmx.fixtureTypes,
-    dmx.fixtureTypesByID
+    dmx.fixtureTypesByID,
+    dmx.led.ledFixtures
   )
 
   return (
