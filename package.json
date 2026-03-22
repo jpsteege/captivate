@@ -8,6 +8,7 @@
     "postinstall": "ts-node .erb/scripts/check-native-dep.js && electron-builder install-app-deps && cross-env NODE_ENV=development TS_NODE_TRANSPILE_ONLY=true webpack --config ./.erb/configs/webpack.config.renderer.dev.dll.ts",
     "package": "ts-node ./.erb/scripts/clean.js dist && npm run build && electron-builder build --publish never",
     "rebuild": "electron-rebuild --parallel --types prod,dev,optional --module-dir release/app",
+    "prestart": "node -e \"const fs=require('fs'),path=require('path'),{execSync}=require('child_process');const artifact=path.join('release','app','node-link','build','Release','node-link-native.node');if(!fs.existsSync(artifact)){console.log('[preflight] node-link native binary not found – rebuilding...');execSync('npm run rebuild-node-link',{cwd:path.resolve('release','app'),stdio:'inherit'})}\"",
     "start": "ts-node ./.erb/scripts/check-port-in-use.js && npm run start:renderer",
     "start:main": "cross-env NODE_ENV=development electronmon -r ts-node/register/transpile-only .",
     "start:preload": "cross-env NODE_ENV=development TS_NODE_TRANSPILE_ONLY=true webpack --config ./.erb/configs/webpack.config.preload.dev.ts",

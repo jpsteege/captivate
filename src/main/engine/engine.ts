@@ -1,7 +1,7 @@
 import { WebContents } from 'electron'
 import { ConnectionManager } from './connections/ConnectionManager'
 import * as MidiConnection from './midiConnection'
-import NodeLink from 'node-link'
+import type NodeLink from 'node-link'
 import { ipcSetup, IPC_Callbacks } from './ipcHandler'
 import { CleanReduxState } from '../../renderer/redux/store'
 import {
@@ -9,7 +9,7 @@ import {
   initRealtimeState,
   SplitState,
 } from '../../renderer/redux/realtimeStore'
-import { TimeState } from '../../shared/TimeState'
+import { TimeState, initTimeState } from '../../shared/TimeState'
 import {
   initRandomizerState,
   resizeRandomizer,
@@ -31,25 +31,37 @@ import { getAllParamKeys } from '../../renderer/redux/dmxSlice'
 import { indexArray } from '../../shared/util'
 import WledManager from './wled/wled_manager'
 
-let _nodeLink = new NodeLink()
-_nodeLink.setIsPlaying(true)
-_nodeLink.enableStartStopSync(true)
-_nodeLink.enable(true)
+let _nodeLink: NodeLink | null = null
+try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const NodeLinkCtor: new () => NodeLink = require('node-link')
+  _nodeLink = new NodeLinkCtor()
+  _nodeLink.setIsPlaying(true)
+  _nodeLink.enableStartStopSync(true)
+  _nodeLink.enable(true)
+} catch (err) {
+  console.error('[engine] Failed to load node-link native addon:', err)
+  console.error(
+    '[engine] Remediation: run `npm run rebuild-node-link --prefix release/app` then restart the app. Link sync will be disabled.'
+  )
+}
 let _ipcCallbacks: IPC_Callbacks | null = null
 let _controlState: CleanReduxState | null = null
 let _realtimeState: RealtimeState = initRealtimeState()
 let _lastFrameTime = 0
 const _tapTempoEngine = new TapTempoEngine()
 function _tapTempo() {
+  if (_nodeLink === null) return
+  const nodeLink = _nodeLink
   _tapTempoEngine.tap((newBpm) => {
-    _nodeLink.setTempo(newBpm)
+    nodeLink.setTempo(newBpm)
   }, (newPhase, { force }) => {
-    const info = _nodeLink.getSessionInfoCurrent();
+    const info = nodeLink.getSessionInfoCurrent();
     const newBeat = info.beats - info.phase + newPhase;
     if (force) {
-      _nodeLink.forceBeat(newBeat);
+      nodeLink.forceBeat(newBeat);
     } else {
-      _nodeLink.requestBeat(newBeat);
+      nodeLink.requestBeat(newBeat);
     }
   })
 }
@@ -92,15 +104,15 @@ export function start(
     },
     on_user_command: (command) => {
       if (command.type === 'IncrementTempo') {
-        _nodeLink.setTempo(_realtimeState.time.bpm + command.amount)
+        _nodeLink?.setTempo(_realtimeState.time.bpm + command.amount)
       } else if (command.type === 'SetLinkEnabled') {
-        _nodeLink.enable(command.isEnabled)
+        _nodeLink?.enable(command.isEnabled)
       } else if (command.type === 'EnableStartStopSync') {
-        _nodeLink.enableStartStopSync(command.isEnabled)
+        _nodeLink?.enableStartStopSync(command.isEnabled)
       } else if (command.type === 'SetIsPlaying') {
-        _nodeLink.setIsPlaying(command.isPlaying)
+        _nodeLink?.setIsPlaying(command.isPlaying)
       } else if (command.type === 'SetBPM') {
-        _nodeLink.setTempo(command.bpm)
+        _nodeLink?.setTempo(command.bpm)
       } else if (command.type === 'TapTempo') {
         _tapTempo()
       }
@@ -175,6 +187,10 @@ function getNextTimeState(): TimeState {
   const dt = currentTime - _lastFrameTime
 
   _lastFrameTime = currentTime
+
+  if (_nodeLink === null) {
+    return { ...initTimeState(), dt }
+  }
 
   return {
     ..._nodeLink.getSessionInfoCurrent(),
