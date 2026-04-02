@@ -106,6 +106,9 @@ export default class WledDevice {
             this.resetProtocol()
           }
           this.transitionState('connected')
+          // Trigger HTTP check now that we have an IP — lastHttpSuccess won't be
+          // set if the earlier checkHttpHealth() ran before mDNS resolved the IP.
+          void this.checkHttpHealth()
         }
       }
     }
@@ -578,6 +581,8 @@ export default class WledDevice {
 
         this.lastSuccessfulBroadcast = Date.now()
         this.lastBroadcastLatency = this.lastSuccessfulBroadcast - sendStartedAt
+        this.lastHttpSuccess = this.lastSuccessfulBroadcast
+        this.lastSeen = this.lastSuccessfulBroadcast
         this.consecutiveFailures = 0
         this.transitionState('connected')
       })

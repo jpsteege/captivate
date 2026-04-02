@@ -97,13 +97,13 @@ export function getLedValues(
   })
 }
 
-interface Segment {
+export interface Segment {
   p0: Point
   p1: Point
   length: number
 }
 
-function pointsToSegments(points: Point[]): Segment[] {
+export function pointsToSegments(points: Point[]): Segment[] {
   if (points.length < 2) return []
 
   let last = points[0]

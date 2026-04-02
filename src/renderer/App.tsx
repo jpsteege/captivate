@@ -4,6 +4,7 @@ import Modulation from './pages/Scenes'
 import Universe from './pages/Universe'
 import Share from './pages/Share'
 import Mixer from './pages/Mixer'
+import WledMixer from './pages/WledMixer'
 import MenuBar from './menu/MenuBar'
 import { useTypedSelector } from './redux/store'
 import FullscreenOverlay from './overlays/FullscreenOverlay'
@@ -22,6 +23,7 @@ export default function App() {
     if (activePage == 'Share') return <Share />
     if (activePage == 'Mixer') return <Mixer />
     if (activePage == 'Led') return <LedPage />
+    if (activePage == 'WledMixer') return <WledMixer />
     console.error(`Bad activePage value: ${activePage}`)
     return null
   }

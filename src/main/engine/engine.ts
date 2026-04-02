@@ -21,10 +21,13 @@ import openVisualizerWindow, {
   VisualizerContainer,
 } from './createVisualizerWindow'
 import { calculateDmx } from './dmxEngine'
+import { getLedValues } from '../../shared/ledFixtures'
+import { BaseColors } from '../../shared/baseColors'
 import { handleAutoScene } from '../../shared/autoScene'
 import { setActiveScene } from '../../renderer/redux/controlSlice'
 import TapTempoEngine from './TapTempoEngine'
-import { flatten_fixtures, getFixturesInGroups } from '../../shared/dmxUtil'
+import { flatten_fixtures, getFixturesInGroups, getLedFixturesInGroups } from '../../shared/dmxUtil'
+import { LightScene_t } from '../../shared/Scenes'
 import { ThrottleMap } from './midiConnection'
 import { MidiMessage, midiInputID } from '../../shared/midi'
 import { getAllParamKeys } from '../../renderer/redux/dmxSlice'
@@ -272,5 +275,66 @@ function getNextRealtimeState(
     time: nextTimeState,
     dmxOut: calculateDmx(controlState, splitStates, nextTimeState),
     splitStates,
+    wledOut: calculateWledOut(controlState, splitStates, scene, nextTimeState),
   }
+}
+
+function maxBlendColors(a: BaseColors, b: BaseColors): BaseColors {
+  return {
+    red: Math.max(a.red, b.red),
+    green: Math.max(a.green, b.green),
+    blue: Math.max(a.blue, b.blue),
+  }
+}
+
+function calculateWledOut(
+  controlState: CleanReduxState,
+  splitStates: SplitState[],
+  scene: LightScene_t | undefined,
+  timeState: TimeState
+): { [mdns: string]: BaseColors[] } {
+  if (!timeState.isPlaying) return {}
+  if (!scene) return {}
+
+  const ledFixtures = controlState.dmx.led.ledFixtures
+  const master = controlState.control.master
+  const ledOutputs: { [mdns: string]: BaseColors[] } = {}
+
+  for (let i = 0; i < splitStates.length; i++) {
+    const splitState = splitStates[i]
+    const splitScene = scene.splitScenes[i]
+    if (!splitState?.outputParams || !splitScene) continue
+
+    const matchingFixtures = getLedFixturesInGroups(ledFixtures, splitScene.groups)
+
+    for (const fixture of matchingFixtures) {
+      const colors = getLedValues(splitState.outputParams, fixture, master)
+
+      if (!ledOutputs[fixture.mdns]) {
+        ledOutputs[fixture.mdns] = indexArray(fixture.led_count).map(() => ({
+          red: 0,
+          green: 0,
+          blue: 0,
+        }))
+      }
+
+      const existing = ledOutputs[fixture.mdns]
+      colors.forEach((color, idx) => {
+        existing[idx] = maxBlendColors(existing[idx], color)
+      })
+    }
+  }
+
+  // Ensure all fixtures have an entry (black if not driven by any split)
+  for (const fixture of ledFixtures) {
+    if (!ledOutputs[fixture.mdns]) {
+      ledOutputs[fixture.mdns] = indexArray(fixture.led_count).map(() => ({
+        red: 0,
+        green: 0,
+        blue: 0,
+      }))
+    }
+  }
+
+  return ledOutputs
 }

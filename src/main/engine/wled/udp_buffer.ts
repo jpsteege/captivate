@@ -20,9 +20,9 @@ export default function udpBuffer(colors: BaseColors[]) {
 
   for (let [i, { red, green, blue }] of colors.entries()) {
     if (i < MAX_LED_COUNT) {
-      buffer[2 + i * 3] = red * MAX_VAL
-      buffer[3 + i * 3] = green * MAX_VAL
-      buffer[4 + i * 3] = blue * MAX_VAL
+      buffer[2 + i * 3] = Math.round(red * MAX_VAL)
+      buffer[3 + i * 3] = Math.round(green * MAX_VAL)
+      buffer[4 + i * 3] = Math.round(blue * MAX_VAL)
     }
   }
 

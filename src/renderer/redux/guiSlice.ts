@@ -16,6 +16,7 @@ export type Page =
   | 'Share'
   | 'Mixer'
   | 'Led'
+  | 'WledMixer'
 
 export interface GuiState {
   activePage: Page

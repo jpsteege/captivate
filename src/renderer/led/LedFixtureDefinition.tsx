@@ -382,34 +382,45 @@ export default function LedFixtureDefinition({ index }: Props) {
               addGroup={(g) => dispatch(addLedFixtureGroup(g))}
               removeGroup={(g) => dispatch(removeLedFixtureGroup(g))}
             />
-            <SectionHeader>Window</SectionHeader>
+            <SectionHeader>Axis Override <AxisOverrideHint>(Advanced)</AxisOverrideHint></SectionHeader>
+            <AxisOverrideDescription>
+              When enabled, this fixture uses a fixed static window on that axis instead of following the scene&apos;s moving X/Y position. Leave both off for normal scene-driven movement.
+            </AxisOverrideDescription>
             <WindowControlRow>
-              <ToggleButton
-                isEnabled={!!def.window?.x}
-                onClick={() =>
-                  dispatch(
-                    setLedFixtureWindowEnabled({
-                      dimension: 'x',
-                      enabled: !def.window?.x,
-                    })
-                  )
-                }
-              >
-                X
-              </ToggleButton>
-              <ToggleButton
-                isEnabled={!!def.window?.y}
-                onClick={() =>
-                  dispatch(
-                    setLedFixtureWindowEnabled({
-                      dimension: 'y',
-                      enabled: !def.window?.y,
-                    })
-                  )
-                }
-              >
-                Y
-              </ToggleButton>
+              <Tooltip title="Override X axis: fix this fixture at a static X position instead of following the scene's X movement">
+                <span>
+                  <ToggleButton
+                    isEnabled={!!def.window?.x}
+                    onClick={() =>
+                      dispatch(
+                        setLedFixtureWindowEnabled({
+                          dimension: 'x',
+                          enabled: !def.window?.x,
+                        })
+                      )
+                    }
+                  >
+                    X
+                  </ToggleButton>
+                </span>
+              </Tooltip>
+              <Tooltip title="Override Y axis: fix this fixture at a static Y position instead of following the scene's Y movement">
+                <span>
+                  <ToggleButton
+                    isEnabled={!!def.window?.y}
+                    onClick={() =>
+                      dispatch(
+                        setLedFixtureWindowEnabled({
+                          dimension: 'y',
+                          enabled: !def.window?.y,
+                        })
+                      )
+                    }
+                  >
+                    Y
+                  </ToggleButton>
+                </span>
+              </Tooltip>
             </WindowControlRow>
             {def.window?.x && (
               <AxisControls>
@@ -624,6 +635,19 @@ const ProtocolRecommendation = styled.div<{ $isOptimal: boolean }>`
 const SectionHeader = styled.div`
   margin-top: 0.5rem;
   font-weight: 600;
+`
+
+const AxisOverrideHint = styled.span`
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: ${(props) => props.theme.colors.text.secondary};
+  margin-left: 0.4rem;
+`
+
+const AxisOverrideDescription = styled.div`
+  font-size: 0.78rem;
+  color: ${(props) => props.theme.colors.text.secondary};
+  line-height: 1.4;
 `
 
 const WindowControlRow = styled.div`
