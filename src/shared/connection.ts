@@ -1,3 +1,5 @@
+import { WledProtocol } from './ledFixtures'
+
 export type ConnectionId = string
 
 export type DmxUsbDeviceType = 'DmxUsbPro' | 'OpenDmxUsb'
@@ -31,7 +33,9 @@ export interface MidiDevice_t {
   name: string
 }
 
-export interface ArtNetConnectionInfo {}
+export interface ArtNetConnectionInfo {
+  ipOut: string | null
+}
 
 export interface DmxConnectionInfo {
   connected: ConnectionId[]
@@ -43,6 +47,28 @@ export interface DmxConnectionInfo {
 export interface MidiConnections {
   connected: ConnectionId[]
   available: MidiDevice_t[]
+}
+
+export interface WledDevice_t {
+  mdns: string
+  name: string
+  ip: string | null
+  lastSeen: number
+  version?: string
+  ledCount?: number
+  brand?: string
+  httpAccessible?: boolean
+  connectionState: 'disconnected' | 'discovering' | 'connected' | 'error'
+  packetLossRate?: number
+  lastSuccessfulTransmission?: number
+  latency?: number
+  currentProtocol?: WledProtocol
+  protocolFallbackOccurred?: boolean
+}
+
+export interface WledConnectionInfo {
+  connected: string[]
+  available: WledDevice_t[]
 }
 
 export function initMidiConnections(): MidiConnections {
@@ -60,5 +86,12 @@ export function initDmxConnections(): DmxConnectionInfo {
     artNet: {
       ipOut: null,
     },
+  }
+}
+
+export function initWledConnections(): WledConnectionInfo {
+  return {
+    connected: [],
+    available: [],
   }
 }

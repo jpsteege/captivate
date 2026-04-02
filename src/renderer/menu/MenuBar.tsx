@@ -4,6 +4,7 @@ import zIndexes from '../zIndexes'
 import UniverseIcon from '@mui/icons-material/Settings'
 import LightingIcon from '@mui/icons-material/Lightbulb'
 import WbIncandescentIcon from '@mui/icons-material/WbIncandescent'
+import LedOutputIcon from '@mui/icons-material/LinearScale'
 import VisualsIcon from '../images/Thick.png'
 import MixerIcon from '@mui/icons-material/BarChart'
 import { useTypedSelector } from '../redux/store'
@@ -59,6 +60,11 @@ export default function MenuBar() {
       {ledEnabled && (
         <MenuItem page="Led" tooltipText="Led Editor">
           <WbIncandescentIcon fontSize="inherit" />
+        </MenuItem>
+      )}
+      {ledEnabled && (
+        <MenuItem page="WledMixer" tooltipText="LED Output">
+          <LedOutputIcon fontSize="inherit" />
         </MenuItem>
       )}
       <MenuItem page="Modulation" tooltipText="Scene Editor">

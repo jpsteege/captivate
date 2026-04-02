@@ -1,18 +1,25 @@
 import { distanceBetween, pLerp, Point } from '../math/point'
 import { BaseColors, getBaseColorsFromHsv } from './baseColors'
-import { getMovingWindow, getWindowMultiplier2D } from './dmxUtil'
+import { getMovingWindow, getWindowMultiplier } from './dmxUtil'
 import { getParam, Params } from './params'
 import { indexArray } from './util'
 import { Window2D_t } from './window'
 
-export const MAX_LED_COUNT = 367
+export const MAX_LED_COUNT = 490
+export type LedStripType = 'WLed'
+export const LED_STRIP_TYPES: LedStripType[] = ['WLed']
+export type WledProtocol = 'DDP' | 'UDP'
+export const WLED_PROTOCOLS: WledProtocol[] = ['DDP', 'UDP']
 
 export interface WLedFixture {
-  type: 'WLed'
+  type: LedStripType
   name: string
   mdns: string
+  protocol: WledProtocol
   led_count: number
   points: Point[] // 0 to 1 x and y
+  groups: string[]
+  window?: Window2D_t
 }
 
 export type LedFixture = WLedFixture
@@ -22,8 +29,14 @@ export function initLedFixture(): LedFixture {
     type: 'WLed',
     name: 'Name',
     mdns: 'Wled1',
+    protocol: 'DDP',
     led_count: 100,
-    points: [{ x: 0.5, y: 0.5 }],
+    points: [
+      { x: 0.3, y: 0.5 },
+      { x: 0.7, y: 0.5 },
+    ],
+    groups: [],
+    window: undefined,
   }
 }
 
@@ -34,6 +47,11 @@ export function getLedValues(
 ): BaseColors[] {
   let segments = pointsToSegments(ledFixture.points)
   let total_length = segments.reduce((acc, s) => acc + s.length, 0.0)
+  if (total_length <= 0) {
+    return indexArray(ledFixture.led_count).map(() =>
+      getBaseColorsFromHsv(0, 0, 0)
+    )
+  }
   let hue = getParam(params, 'hue')
   let saturation = getParam(params, 'saturation')
   let brightness = getParam(params, 'brightness')
@@ -63,7 +81,13 @@ export function getLedValues(
   }, [])
 
   return ledWindows.map((ledWindow) => {
-    let windowMultiplier = getWindowMultiplier2D(ledWindow, movingWindow)
+    const useX =
+      ledFixture.window === undefined || ledFixture.window.x !== undefined
+    const multX = useX ? getWindowMultiplier(ledWindow.x, movingWindow.x) : 1.0
+    const useY =
+      ledFixture.window === undefined || ledFixture.window.y !== undefined
+    const multY = useY ? getWindowMultiplier(ledWindow.y, movingWindow.y) : 1.0
+    const windowMultiplier = multX * multY
 
     return getBaseColorsFromHsv(
       hue,
@@ -73,13 +97,13 @@ export function getLedValues(
   })
 }
 
-interface Segment {
+export interface Segment {
   p0: Point
   p1: Point
   length: number
 }
 
-function pointsToSegments(points: Point[]): Segment[] {
+export function pointsToSegments(points: Point[]): Segment[] {
   if (points.length < 2) return []
 
   let last = points[0]

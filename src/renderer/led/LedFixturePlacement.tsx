@@ -1,3 +1,4 @@
+import React from 'react'
 import styled from 'styled-components'
 import useDragMapped, { MappedPos } from 'renderer/hooks/useDragMapped'
 import { useDispatch } from 'react-redux'
@@ -17,6 +18,16 @@ interface Props {}
 
 let draggedPointIndex: number | null = null
 
+/**
+ * LED Fixture Placement Matrix
+ *
+ * Interactions:
+ * - Click + drag point: Move point
+ * - Shift + click empty space: Add point
+ * - Shift + click point: Remove point
+ * - Double-click empty space: Add point (alternative)
+ * - Right-click point: Remove point (alternative)
+ */
 export default function LedFixturePlacement({}: Props) {
   const numLedFixtures = useDmxSelector((dmx) => dmx.led.ledFixtures.length)
   const activeLedFixture = useDmxSelector((dmx) => {
@@ -49,20 +60,62 @@ export default function LedFixturePlacement({}: Props) {
         draggedPointIndex = null
       } else {
         if (draggedPointIndex !== null) {
-          console.log('!== null')
           dispatch(
             updateLedFixturePoint({ index: draggedPointIndex, newPoint: point })
           )
-        } else {
-          console.log('null')
         }
       }
     }
   })
 
+  const mapMouseToPos = (
+    e: React.MouseEvent<HTMLDivElement, MouseEvent>
+  ): Point | null => {
+    if (dragContainer.current === null) return null
+    const { width, height, left, top, right, bottom } =
+      dragContainer.current.getBoundingClientRect()
+    const clamp = (val: number, min: number, max: number) =>
+      Math.min(Math.max(val, min), max)
+    const getRatio = (val: number, min: number, max: number, range: number) =>
+      (clamp(val, min, max) - min) / range
+
+    return {
+      x: getRatio(e.clientX, left, right, width),
+      y: 1 - getRatio(e.clientY, top, bottom, height),
+    }
+  }
+
+  const handleDoubleClick = (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
+    if (activeLedFixture === null) return
+    const point = mapMouseToPos(e)
+    if (!point) return
+    dispatch(addLedFixturePoint(point))
+  }
+
+  const handleContextMenu = (
+    e: React.MouseEvent<HTMLDivElement, MouseEvent>
+  ) => {
+    if (activeLedFixture === null) return
+    e.preventDefault()
+    const pos = mapMouseToPos(e)
+    if (!pos) return
+    const nearbyIndex = isOnPoint(
+      { x: pos.x, y: pos.y, dx: 0, dy: 0 },
+      activeLedFixture.points
+    )
+    if (nearbyIndex !== null) {
+      dispatch(removeLedFixturePoint(nearbyIndex))
+    }
+  }
+
   return (
     <Root>
-      <Background ref={dragContainer} onMouseDown={onMouseDown}>
+      <Background
+        ref={dragContainer}
+        onMouseDown={onMouseDown}
+        onDoubleClick={handleDoubleClick}
+        onContextMenu={handleContextMenu}
+      >
         <Vertical />
         <Horizontal />
         {indexArray(numLedFixtures).map((index) => (
@@ -78,6 +131,7 @@ export default function LedFixturePlacement({}: Props) {
 
             return (
               <Cursor
+                key={index}
                 x={point.x}
                 y={point.y}
                 radius={radius}
@@ -130,8 +184,6 @@ function isOnPoint(mappedPos: MappedPos, points: Point[]): number | null {
   if (sortedByDistance.length === 0) {
     return null
   } else {
-    console.log(sortedByDistance[0])
-
     return sortedByDistance[0][0]
   }
 }

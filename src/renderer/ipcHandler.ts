@@ -3,10 +3,11 @@ import { CleanReduxState } from './redux/store'
 import { RealtimeState } from './redux/realtimeStore'
 import * as midiConnection from '../main/engine/midiConnection'
 import { PayloadAction } from '@reduxjs/toolkit'
-import { DmxConnectionInfo } from 'shared/connection'
+import { DmxConnectionInfo, WledConnectionInfo } from 'shared/connection'
 
 interface Config {
   on_dmx_connection_update: (payload: DmxConnectionInfo) => void
+  on_wled_connection_update: (payload: WledConnectionInfo) => void
   on_midi_connection_update: (payload: midiConnection.UpdatePayload) => void
   on_time_state: (time_state: RealtimeState) => void
   on_dispatch: (action: PayloadAction) => void
@@ -24,6 +25,12 @@ export function ipc_setup(config: Config) {
   ipcRenderer.on(
     ipc_channels.dmx_connection_update,
     (payload: DmxConnectionInfo) => _config.on_dmx_connection_update(payload)
+  )
+
+  ipcRenderer.on(
+    ipc_channels.wled_connection_update,
+    (payload: WledConnectionInfo) =>
+      _config.on_wled_connection_update(payload)
   )
 
   ipcRenderer.on(

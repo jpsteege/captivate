@@ -12,6 +12,7 @@ import {
   DMX_MIN_VALUE,
   FlattenedFixture,
 } from './dmxFixtures'
+import { LedFixture } from './ledFixtures'
 import { getParam, Params } from './params'
 import { findClosest, lerp, Normalized } from '../math/util'
 import { rLerp } from '../math/range'
@@ -28,7 +29,7 @@ export function getWindowMultiplier2D(
   )
 }
 
-function getWindowMultiplier(fixtureWindow?: Window, movingWindow?: Window) {
+export function getWindowMultiplier(fixtureWindow?: Window, movingWindow?: Window) {
   if (fixtureWindow && movingWindow) {
     const distanceBetween = Math.abs(fixtureWindow.pos - movingWindow.pos) / 2
     const reach = fixtureWindow.width / 2 + movingWindow.width / 2
@@ -198,8 +199,30 @@ export function getFixturesInGroups(
   if (entries.length === 0) return fixtures
 
   return fixtures.filter((fixture) => {
-    if (groups.find((g) => fixture.groups.includes(g))) return true
-    if (not_groups.find((g) => !fixture.groups.includes(g))) return true
+  if (groups.find((g) => fixture.groups?.includes(g) ?? false)) return true
+  if (not_groups.find((g) => !(fixture.groups?.includes(g) ?? false))) return true
+    return false
+  })
+}
+
+export function getLedFixturesInGroups(
+  ledFixtures: LedFixture[],
+  scene_groups: { [key: string]: boolean | undefined }
+): LedFixture[] {
+  let entries = Object.entries(scene_groups)
+
+  let groups = entries
+    .filter(([_, include]) => include === true)
+    .map(([group, _]) => group)
+  let not_groups = entries
+    .filter(([_, include]) => include === false)
+    .map(([group, _]) => group)
+
+  if (entries.length === 0) return ledFixtures
+
+  return ledFixtures.filter((fixture) => {
+    if (groups.find((g) => fixture.groups?.includes(g) ?? false)) return true
+    if (not_groups.find((g) => !(fixture.groups?.includes(g) ?? false))) return true
     return false
   })
 }
@@ -226,7 +249,8 @@ export function getSortedGroupsForFixtureType(fixtureType: FixtureType) {
 export function getSortedGroups(
   universe: Universe,
   fixtureTypeIds: string[],
-  fixtureTypesById: { [id: string]: FixtureType }
+  fixtureTypesById: { [id: string]: FixtureType },
+  ledFixtures: LedFixture[] = []
 ) {
   const groupSet: Set<string> = new Set()
   for (const fixture of universe) {
@@ -243,6 +267,11 @@ export function getSortedGroups(
       for (const group of sub.groups) {
         groupSet.add(group)
       }
+    }
+  }
+  for (const ledFixture of ledFixtures) {
+  for (const group of ledFixture.groups ?? []) {
+      groupSet.add(group)
     }
   }
   return Array.from(groupSet.keys()).sort((a, b) => (a > b ? 1 : -1))

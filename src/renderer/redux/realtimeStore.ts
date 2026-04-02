@@ -9,6 +9,7 @@ import React from 'react'
 import { initTimeState, TimeState } from '../../shared/TimeState'
 import { defaultOutputParams, DefaultParam, Params } from '../../shared/params'
 import { RandomizerState } from '../../shared/randomizer'
+import { BaseColors } from '../../shared/baseColors'
 
 function initDmxOut(): number[] {
   return Array(512).fill(0)
@@ -23,6 +24,7 @@ export interface RealtimeState {
   time: TimeState
   dmxOut: number[]
   splitStates: SplitState[]
+  wledOut: { [mdns: string]: BaseColors[] }
 }
 
 export function initRealtimeState(): RealtimeState {
@@ -30,6 +32,7 @@ export function initRealtimeState(): RealtimeState {
     time: initTimeState(),
     dmxOut: initDmxOut(),
     splitStates: [],
+    wledOut: {},
   }
 }
 

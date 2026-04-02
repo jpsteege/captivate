@@ -16,7 +16,8 @@
   "main": "./dist/main/main.js",
   "scripts": {
     "electron-rebuild": "node -r ts-node/register ../../.erb/scripts/electron-rebuild.js",
-    "postinstall": "npm run electron-rebuild && npm run link-modules",
+    "rebuild-node-link": "node-gyp rebuild --directory node-link",
+    "postinstall": "npm run rebuild-node-link && npm run electron-rebuild && npm run link-modules",
     "link-modules": "node -r ts-node/register ../../.erb/scripts/link-modules.ts"
   },
   "dependencies": {

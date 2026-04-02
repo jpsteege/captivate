@@ -23,7 +23,8 @@ export default function GroupSelection({ splitIndex }: Props) {
   let availableGroups = getSortedGroups(
     dmx.universe,
     dmx.fixtureTypes,
-    dmx.fixtureTypesByID
+    dmx.fixtureTypesByID,
+    dmx.led.ledFixtures
   )
   const activeGroups = useActiveLightScene(
     (scene) => scene.splitScenes[splitIndex].groups

@@ -406,6 +406,55 @@ export const dmxSlice = createSlice({
         (f) => (f.points[payload.index] = payload.newPoint)
       )
     },
+    addLedFixtureGroup: (state, { payload }: PayloadAction<string>) => {
+      modifyActiveLedFixture(
+        state,
+        (ledFixture) =>
+          (ledFixture.groups = add_noDuplicates(payload, ledFixture.groups))
+      )
+    },
+    removeLedFixtureGroup: (state, { payload }: PayloadAction<string>) => {
+      modifyActiveLedFixture(
+        state,
+        (ledFixture) =>
+          (ledFixture.groups = remove_noDuplicates(payload, ledFixture.groups))
+      )
+    },
+    setLedFixtureWindowEnabled: (
+      state,
+      { payload }: PayloadAction<{ dimension: 'x' | 'y'; enabled: boolean }>
+    ) => {
+      modifyActiveLedFixture(state, (ledFixture) => {
+        if (!ledFixture.window) {
+          ledFixture.window = {}
+        }
+        if (payload.enabled) {
+          ledFixture.window[payload.dimension] = { pos: 0.5, width: 0 }
+        } else {
+          delete ledFixture.window[payload.dimension]
+        }
+      })
+    },
+    setLedFixtureWindowPos: (
+      state,
+      { payload }: PayloadAction<{ dimension: 'x' | 'y'; pos: number }>
+    ) => {
+      modifyActiveLedFixture(state, (ledFixture) => {
+        if (ledFixture.window?.[payload.dimension]) {
+          ledFixture.window[payload.dimension]!.pos = payload.pos
+        }
+      })
+    },
+    setLedFixtureWindowWidth: (
+      state,
+      { payload }: PayloadAction<{ dimension: 'x' | 'y'; width: number }>
+    ) => {
+      modifyActiveLedFixture(state, (ledFixture) => {
+        if (ledFixture.window?.[payload.dimension]) {
+          ledFixture.window[payload.dimension]!.width = payload.width
+        }
+      })
+    },
   },
 })
 
@@ -442,6 +491,11 @@ export const {
   addLedFixturePoint,
   removeLedFixturePoint,
   updateLedFixturePoint,
+  addLedFixtureGroup,
+  removeLedFixtureGroup,
+  setLedFixtureWindowEnabled,
+  setLedFixtureWindowPos,
+  setLedFixtureWindowWidth,
 } = dmxSlice.actions
 
 export default dmxSlice.reducer

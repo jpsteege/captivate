@@ -5,6 +5,8 @@ import {
   DmxConnectionInfo,
   initDmxConnections,
   initMidiConnections,
+  WledConnectionInfo,
+  initWledConnections,
 } from '../../shared/connection'
 
 export type Page =
@@ -14,6 +16,7 @@ export type Page =
   | 'Share'
   | 'Mixer'
   | 'Led'
+  | 'WledMixer'
 
 export interface GuiState {
   activePage: Page
@@ -21,6 +24,7 @@ export interface GuiState {
   connectionMenu: boolean
   midi: MidiConnections
   dmx: DmxConnectionInfo
+  wled: WledConnectionInfo
   saving: boolean
   loading: SaveInfo | null
   newProjectDialog: boolean
@@ -35,6 +39,7 @@ export function initGuiState(): GuiState {
     connectionMenu: false,
     midi: initMidiConnections(),
     dmx: initDmxConnections(),
+    wled: initWledConnections(),
     saving: false,
     loading: null,
     newProjectDialog: false,
@@ -62,6 +67,9 @@ export const guiSlice = createSlice({
     setDmx: (state, { payload }: PayloadAction<DmxConnectionInfo>) => {
       state.dmx = payload
     },
+    setWled: (state, { payload }: PayloadAction<WledConnectionInfo>) => {
+      state.wled = payload
+    },
     setSaving: (state, { payload }: PayloadAction<boolean>) => {
       state.saving = payload
     },
@@ -86,6 +94,7 @@ export const {
   setConnectionsMenu,
   setMidi,
   setDmx,
+  setWled,
   setSaving,
   setLoading,
   setNewProjectDialog,
