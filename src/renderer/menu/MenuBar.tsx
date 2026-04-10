@@ -7,6 +7,8 @@ import WbIncandescentIcon from '@mui/icons-material/WbIncandescent'
 import LedOutputIcon from '@mui/icons-material/LinearScale'
 import VisualsIcon from '../images/Thick.png'
 import MixerIcon from '@mui/icons-material/BarChart'
+import AudioIcon from '@mui/icons-material/GraphicEq'
+import AutoControlIcon from '@mui/icons-material/Tune'
 import { useTypedSelector } from '../redux/store'
 import { useDispatch } from 'react-redux'
 import { setActivePage, Page } from '../redux/guiSlice'
@@ -19,6 +21,7 @@ export default function MenuBar() {
   const dispatch = useDispatch()
   const ledEnabled = useTypedSelector((state) => state.gui.ledEnabled)
   const videoEnabled = useTypedSelector((state) => state.gui.videoEnabled)
+  const audioEnabled = useTypedSelector((state) => state.gui.audioEnabled)
 
   const setPage = (newPage: Page) => {
     return () => {
@@ -81,6 +84,14 @@ export default function MenuBar() {
       <MenuItem page="Mixer" tooltipText="DMX Mixer">
         <MixerIcon fontSize="inherit" />
       </MenuItem>
+      <MenuItem page="Audio" tooltipText="Audio Analysis">
+        <AudioIcon fontSize="inherit" />
+      </MenuItem>
+      {audioEnabled && (
+        <MenuItem page="AutoControl" tooltipText="Auto Control">
+          <AutoControlIcon fontSize="inherit" />
+        </MenuItem>
+      )}
       <Spacer />
       <MasterSlider />
       <div style={{ height: '0.5rem' }} />

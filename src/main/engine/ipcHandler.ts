@@ -17,6 +17,13 @@ import { VisualizerResource } from '../../visualizer/threejs/VisualizerManager'
 import { VisualizerContainer } from './createVisualizerWindow'
 import { DmxConnectionInfo, WledConnectionInfo } from 'shared/connection'
 import { getWledManager } from './engine'
+import { AudioFeatures, initAudioFeatures } from '../../shared/audioFeatures'
+
+let _latestAudioFeatures: AudioFeatures = initAudioFeatures()
+
+export function getLatestAudioFeatures(): AudioFeatures {
+  return _latestAudioFeatures
+}
 
 interface Config {
   renderer: WebContents
@@ -41,6 +48,10 @@ export function ipcSetup(config: Config) {
 
   ipcMain.on(ipcChannels.open_visualizer, (_e) => {
     _config.on_open_visualizer()
+  })
+
+  ipcMain.on(ipcChannels.audio_features, (_e, features: AudioFeatures) => {
+    _latestAudioFeatures = features
   })
 
   return {

@@ -10,6 +10,8 @@ import {
   EffectsConfig,
   initEffectsConfig,
 } from '../visualizer/threejs/effects/effectConfigs'
+import { LedEffect } from './ledPatterns'
+import { AudioModulator } from './audioFeatures'
 
 export interface SceneBase {
   name: string
@@ -22,6 +24,7 @@ export interface SplitScene_t {
   randomizer: RandomizerOptions
   // true = include group | false = include not group
   groups: { [key: string]: boolean | undefined }
+  ledEffect?: LedEffect
 }
 
 export function initSplitScene(): SplitScene_t {
@@ -35,6 +38,7 @@ export function initSplitScene(): SplitScene_t {
 export interface LightScene_t extends SceneBase {
   modulators: Modulator[]
   splitScenes: SplitScene_t[]
+  audioModulators?: AudioModulator[]
 }
 
 export function initLightScene(): LightScene_t {

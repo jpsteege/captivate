@@ -10,6 +10,7 @@ import { initTimeState, TimeState } from '../../shared/TimeState'
 import { defaultOutputParams, DefaultParam, Params } from '../../shared/params'
 import { RandomizerState } from '../../shared/randomizer'
 import { BaseColors } from '../../shared/baseColors'
+import { AudioFeatures, initAudioFeatures } from '../../shared/audioFeatures'
 
 function initDmxOut(): number[] {
   return Array(512).fill(0)
@@ -25,6 +26,7 @@ export interface RealtimeState {
   dmxOut: number[]
   splitStates: SplitState[]
   wledOut: { [mdns: string]: BaseColors[] }
+  audioFeatures: AudioFeatures
 }
 
 export function initRealtimeState(): RealtimeState {
@@ -33,6 +35,7 @@ export function initRealtimeState(): RealtimeState {
     dmxOut: initDmxOut(),
     splitStates: [],
     wledOut: {},
+    audioFeatures: initAudioFeatures(),
   }
 }
 
@@ -48,7 +51,12 @@ function realtimeStoreReducer(
   action: PayloadAction<any>
 ) {
   if (action.type === 'update') {
-    return action.payload
+    // Preserve renderer-side audioFeatures — they are computed locally via Web Audio API
+    // and must not be overwritten by the main-process IPC state update
+    return { ...action.payload, audioFeatures: state.audioFeatures }
+  }
+  if (action.type === 'updateAudioFeatures') {
+    return { ...state, audioFeatures: action.payload }
   }
   return state
 }

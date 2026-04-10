@@ -8,6 +8,7 @@ import { useSelector, TypedUseSelectorHook } from 'react-redux'
 import dmxReducer, { DmxState } from './dmxSlice'
 import guiReducer from './guiSlice'
 import controlReducer, { ControlState } from './controlSlice'
+import autoControlReducer from './autoControlSlice'
 import { LightScene_t } from '../../shared/Scenes'
 import mixerReducer from './mixerSlice'
 import undoable, { StateWithHistory } from 'redux-undo'
@@ -46,6 +47,7 @@ const baseReducer = combineReducers({
     redoType: undoActionTypes.control.redo,
   }),
   mixer: mixerReducer,
+  autoControl: autoControlReducer,
 })
 
 export type ReduxState = ReturnType<typeof baseReducer>
@@ -104,6 +106,7 @@ const rootReducer: Reducer<ReduxState, PayloadAction<any>> = (
       gui: cleanState.gui,
       control: initUndoState(cleanState.control),
       mixer: cleanState.mixer,
+      autoControl: cleanState.autoControl,
     }
   } else if (action.type === RESET_UNIVERSE) {
     const us: DmxState = action.payload
@@ -192,6 +195,7 @@ export function getCleanReduxState(state: ReduxState) {
     gui: state.gui,
     control: state.control.present,
     mixer: state.mixer,
+    autoControl: state.autoControl,
   }
 }
 

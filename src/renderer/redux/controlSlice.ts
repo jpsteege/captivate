@@ -22,6 +22,8 @@ import {
   SceneType,
   initSplitScene,
 } from '../../shared/Scenes'
+import { LedEffect } from '../../shared/ledPatterns'
+import { AudioModulator } from '../../shared/audioFeatures'
 import { reorderArray } from '../../shared/util'
 
 export interface ControlState extends ScenesStateBundle {
@@ -382,6 +384,31 @@ export const scenesSlice = createSlice({
         }
       })
     },
+    setLedEffect: (
+      state,
+      { payload }: PayloadAction<{ splitIndex: number; effect: LedEffect }>
+    ) => {
+      modifyActiveLightScene(state, (scene) => {
+        scene.splitScenes[payload.splitIndex].ledEffect = payload.effect
+      })
+    },
+    setAudioModulators: (
+      state,
+      { payload }: PayloadAction<AudioModulator[]>
+    ) => {
+      modifyActiveLightScene(state, (scene) => {
+        scene.audioModulators = payload
+      })
+    },
+    setLightSceneById: (
+      state,
+      { payload }: PayloadAction<{ id: string; scene: LightScene_t }>
+    ) => {
+      if (!state.light.ids.includes(payload.id)) {
+        state.light.ids.push(payload.id)
+      }
+      state.light.byId[payload.id] = payload.scene
+    },
     // =====================   VISUAL SCENES ONLY   ===========================
     resetVisualScenes: (state, { payload }: PayloadAction<VisualScenes_t>) => {
       state.visual = payload
@@ -492,6 +519,9 @@ export const {
   addSplitScene,
   removeSplitSceneByIndex,
   setSceneGroup,
+  setLedEffect,
+  setAudioModulators,
+  setLightSceneById,
 
   // VISUAL SCENES
   resetVisualScenes,

@@ -23,11 +23,17 @@ import openVisualizerWindow, {
 import { calculateDmx } from './dmxEngine'
 import { getLedValues } from '../../shared/ledFixtures'
 import { BaseColors } from '../../shared/baseColors'
+import { applyLedEffect } from '../../shared/ledPatterns'
+import { AudioFeatures, AudioModulator } from '../../shared/audioFeatures'
+import { getLatestAudioFeatures } from './ipcHandler'
+import { Params } from '../../shared/params'
 import { handleAutoScene } from '../../shared/autoScene'
-import { setActiveScene } from '../../renderer/redux/controlSlice'
+import { setActiveScene, setLightSceneById } from '../../renderer/redux/controlSlice'
+import { AUTO_SCENE_ID } from '../../renderer/redux/autoControlSlice'
+import { resolveBehavior } from '../../shared/vibeBehavior'
+import { initLightScene, initSplitScene, LightScene_t } from '../../shared/Scenes'
 import TapTempoEngine from './TapTempoEngine'
-import { flatten_fixtures, getFixturesInGroups, getLedFixturesInGroups } from '../../shared/dmxUtil'
-import { LightScene_t } from '../../shared/Scenes'
+import { flatten_fixtures, getFixturesInGroups, getLedFixturesInGroups, getSortedGroups } from '../../shared/dmxUtil'
 import { ThrottleMap } from './midiConnection'
 import { MidiMessage, midiInputID } from '../../shared/midi'
 import { getAllParamKeys } from '../../renderer/redux/dmxSlice'
@@ -53,6 +59,7 @@ let _controlState: CleanReduxState | null = null
 let _realtimeState: RealtimeState = initRealtimeState()
 let _lastFrameTime = 0
 const _tapTempoEngine = new TapTempoEngine()
+let _lastAutoVibe = ''
 function _tapTempo() {
   if (_nodeLink === null) return
   const nodeLink = _nodeLink
@@ -202,6 +209,56 @@ function getNextTimeState(): TimeState {
   }
 }
 
+function generateAutoScene(
+  ipcCallbacks: IPC_Callbacks,
+  controlState: CleanReduxState,
+  vibe: string
+) {
+  const autoControl = controlState.autoControl
+  if (!autoControl.enabled) return
+
+  const dmx = controlState.dmx
+  const allGroups = getSortedGroups(
+    dmx.universe,
+    dmx.fixtureTypes,
+    dmx.fixtureTypesByID,
+    dmx.led.ledFixtures
+  )
+
+  const splitScenes = allGroups
+    .filter((group) => {
+      const role = autoControl.groupRoles[group] ?? 'off'
+      return role !== 'off'
+    })
+    .map((group) => {
+      const role = autoControl.groupRoles[group] ?? 'off'
+      const behavior = resolveBehavior(role as any, vibe as any, autoControl.behaviorMap)
+      const groupDepth = autoControl.perGroupDepth[group] ?? 1
+      const depth = autoControl.globalDepth * groupDepth
+      const splitScene = initSplitScene()
+      splitScene.groups = { [group]: true }
+      splitScene.ledEffect = behavior.ledEffect
+      splitScene.baseParams = {
+        hue: behavior.hueOverride ?? 0,
+        saturation: behavior.saturation,
+        brightness: behavior.brightness * depth,
+      }
+      return splitScene
+    })
+
+  if (splitScenes.length === 0) return
+
+  const autoScene = {
+    ...initLightScene(),
+    name: 'Auto',
+    splitScenes,
+  }
+
+  ipcCallbacks.send_dispatch(
+    setLightSceneById({ id: AUTO_SCENE_ID, scene: autoScene })
+  )
+}
+
 function getNextRealtimeState(
   realtimeState: RealtimeState,
   nextTimeState: TimeState,
@@ -237,14 +294,30 @@ function getNextRealtimeState(
 
   const fixtures = flatten_fixtures(dmx.universe, dmx.fixtureTypesByID)
 
+  const audioFeatures = getLatestAudioFeatures()
+
+  // Auto scene generation — regenerate when vibe changes
+  const currentVibe = audioFeatures.vibe ?? 'neutral'
+  if (currentVibe !== _lastAutoVibe) {
+    _lastAutoVibe = currentVibe
+    generateAutoScene(ipcCallbacks, controlState, currentVibe)
+  }
+
   const splitStates: SplitState[] = scene.splitScenes.map(
     (splitScene, splitIndex) => {
-      const splitOutputParams = getOutputParams(
+      let splitOutputParams = getOutputParams(
         nextTimeState.beats,
         scene,
         splitIndex,
         allParamKeys
       )
+      if (scene.audioModulators && scene.audioModulators.length > 0) {
+        splitOutputParams = applyAudioModulators(
+          splitOutputParams,
+          scene.audioModulators,
+          audioFeatures
+        )
+      }
       let splitSceneFixtures = getFixturesInGroups(fixtures, splitScene.groups)
       let splitSceneFixturesWithinEpicness = splitSceneFixtures.filter(
         (fixture) => fixture.intensity <= (splitOutputParams.intensity ?? 1)
@@ -276,7 +349,27 @@ function getNextRealtimeState(
     dmxOut: calculateDmx(controlState, splitStates, nextTimeState),
     splitStates,
     wledOut: calculateWledOut(controlState, splitStates, scene, nextTimeState),
+    audioFeatures: realtimeState.audioFeatures,
   }
+}
+
+// Exponential moving average smoothing state (per modulator, per call)
+// We use a simple approximation here since audio features are updated ~20 Hz
+function applyAudioModulators(
+  params: Params,
+  modulators: AudioModulator[],
+  features: AudioFeatures
+): Params {
+  if (!features.enabled || modulators.length === 0) return params
+  const result: Params = { ...params }
+  for (const mod of modulators) {
+    const raw = features[mod.source] as number
+    const mapped = mod.min + raw * (mod.max - mod.min)
+    const existing = (result[mod.target] as number | undefined) ?? 0
+    // Smooth: blend toward new value (smoothing=0 → instant, smoothing=1 → frozen)
+    result[mod.target] = existing * mod.smoothing + mapped * (1 - mod.smoothing)
+  }
+  return result
 }
 
 function maxBlendColors(a: BaseColors, b: BaseColors): BaseColors {
@@ -308,7 +401,10 @@ function calculateWledOut(
     const matchingFixtures = getLedFixturesInGroups(ledFixtures, splitScene.groups)
 
     for (const fixture of matchingFixtures) {
-      const colors = getLedValues(splitState.outputParams, fixture, master)
+      let colors = getLedValues(splitState.outputParams, fixture, master)
+      if (splitScene.ledEffect && splitScene.ledEffect.type !== 'none') {
+        colors = applyLedEffect(colors, splitScene.ledEffect, timeState, splitState.outputParams.hue ?? 0)
+      }
 
       if (!ledOutputs[fixture.mdns]) {
         ledOutputs[fixture.mdns] = indexArray(fixture.led_count).map(() => ({
