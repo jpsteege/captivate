@@ -10,6 +10,7 @@ contextBridge.exposeInMainWorld('electron', {
         'new_control_state',
         'user_command',
         'open_visualizer',
+        'audio_features',
       ]
       if (validChannels.includes(channel)) {
         ipcRenderer.send(channel, ...args)
@@ -25,6 +26,7 @@ contextBridge.exposeInMainWorld('electron', {
         'new_midi_message',
         'dmx_connection_update',
         'midi_connection_update',
+        'wled_connection_update',
         'dispatch',
         'new_control_state',
         'new_time_state',

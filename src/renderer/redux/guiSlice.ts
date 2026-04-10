@@ -17,6 +17,8 @@ export type Page =
   | 'Mixer'
   | 'Led'
   | 'WledMixer'
+  | 'Audio'
+  | 'AutoControl'
 
 export interface GuiState {
   activePage: Page
@@ -30,6 +32,7 @@ export interface GuiState {
   newProjectDialog: boolean
   ledEnabled: boolean
   videoEnabled: boolean
+  audioEnabled: boolean
 }
 
 export function initGuiState(): GuiState {
@@ -45,6 +48,7 @@ export function initGuiState(): GuiState {
     newProjectDialog: false,
     ledEnabled: false,
     videoEnabled: false,
+    audioEnabled: false,
   }
 }
 
@@ -85,6 +89,9 @@ export const guiSlice = createSlice({
     toggleVideoEnabled: (state, _: PayloadAction<undefined>) => {
       state.videoEnabled = !state.videoEnabled
     },
+    toggleAudioEnabled: (state, _: PayloadAction<undefined>) => {
+      state.audioEnabled = !state.audioEnabled
+    },
   },
 })
 
@@ -100,6 +107,7 @@ export const {
   setNewProjectDialog,
   toggleLedEnabled,
   toggleVideoEnabled,
+  toggleAudioEnabled,
 } = guiSlice.actions
 
 export default guiSlice.reducer

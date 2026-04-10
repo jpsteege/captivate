@@ -13,6 +13,7 @@ export default {
   main_command: 'main_command',
   test_wled_connection: 'test_wled_connection',
   reset_wled_protocol: 'reset_wled_protocol',
+  audio_features: 'audio_features',
 } as const
 
 export interface SetLinkEnabled {

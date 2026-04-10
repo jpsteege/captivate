@@ -4,6 +4,7 @@ import { RealtimeState } from './redux/realtimeStore'
 import * as midiConnection from '../main/engine/midiConnection'
 import { PayloadAction } from '@reduxjs/toolkit'
 import { DmxConnectionInfo, WledConnectionInfo } from 'shared/connection'
+import { AudioFeatures } from 'shared/audioFeatures'
 
 interface Config {
   on_dmx_connection_update: (payload: DmxConnectionInfo) => void
@@ -60,6 +61,9 @@ export function send_user_command(command: UserCommand) {
 }
 export function send_open_visualizer() {
   ipcRenderer.send(ipc_channels.open_visualizer)
+}
+export function send_audio_features(features: AudioFeatures) {
+  ipcRenderer.send(ipc_channels.audio_features, features)
 }
 export async function getLocalFilepaths(
   title: string,

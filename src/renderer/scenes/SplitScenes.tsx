@@ -1,8 +1,13 @@
 import ParamsControl from 'renderer/controls/ParamsControl'
-import { useActiveLightScene, useControlSelector } from 'renderer/redux/store'
+import {
+  useActiveLightScene,
+  useControlSelector,
+  useTypedSelector,
+} from 'renderer/redux/store'
 import { indexArray } from 'shared/util'
 import styled from 'styled-components'
 import GroupSelection from './GroupSelection'
+import LedEffectControl from './LedEffectControl'
 import Button from '@mui/material/Button'
 import AddIcon from '@mui/icons-material/Add'
 import IconButton from '@mui/material/IconButton'
@@ -47,10 +52,12 @@ interface Props {
 }
 
 function SplitScene({ index }: Props) {
+  const ledEnabled = useTypedSelector((state) => state.gui.ledEnabled)
   return (
     <Root2>
       <GroupSelection splitIndex={index} />
       <ParamsControl splitIndex={index} />
+      {ledEnabled && <LedEffectControl splitIndex={index} />}
     </Root2>
   )
 }
