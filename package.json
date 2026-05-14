@@ -188,7 +188,7 @@
     ],
     "publish": {
       "provider": "github",
-      "owner": "spensbot",
+      "owner": "jpsteege",
       "repo": "captivate",
       "vPrefixedTagName": true
     }

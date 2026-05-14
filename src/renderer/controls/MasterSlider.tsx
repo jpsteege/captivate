@@ -12,11 +12,9 @@ export default function MasterSlider() {
     <SliderMidiOverlay
       action={{ type: 'setMaster' }}
       style={{
-        flex: '0 1 25rem',
+        flex: '0 1 12rem',
         width: '80%',
-        // marginBottom: '1rem',
-        padding: '1rem 0',
-        // maxHeight: '30rem',
+        padding: '0.5rem 0',
       }}
     >
       <Slider

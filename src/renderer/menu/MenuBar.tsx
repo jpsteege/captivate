@@ -5,6 +5,7 @@ import UniverseIcon from '@mui/icons-material/Settings'
 import LightingIcon from '@mui/icons-material/Lightbulb'
 import WbIncandescentIcon from '@mui/icons-material/WbIncandescent'
 import LedOutputIcon from '@mui/icons-material/LinearScale'
+import GroupsIcon from '@mui/icons-material/AccountTree'
 import VisualsIcon from '../images/Thick.png'
 import MixerIcon from '@mui/icons-material/BarChart'
 import AudioIcon from '@mui/icons-material/GraphicEq'
@@ -57,19 +58,24 @@ export default function MenuBar() {
 
   return (
     <Root>
+      {/* ── Fixtures ── */}
+      <SectionLabel>Fixtures</SectionLabel>
       <MenuItem page="Universe" tooltipText="DMX Setup">
         <UniverseIcon fontSize="inherit" />
       </MenuItem>
       {ledEnabled && (
-        <MenuItem page="Led" tooltipText="Led Editor">
+        <MenuItem page="Led" tooltipText="LED Editor">
           <WbIncandescentIcon fontSize="inherit" />
         </MenuItem>
       )}
-      {ledEnabled && (
-        <MenuItem page="WledMixer" tooltipText="LED Output">
-          <LedOutputIcon fontSize="inherit" />
-        </MenuItem>
-      )}
+      <MenuItem page="Groups" tooltipText="Fixture Groups">
+        <GroupsIcon fontSize="inherit" />
+      </MenuItem>
+
+      <Divider />
+
+      {/* ── Scenes ── */}
+      <SectionLabel>Scenes</SectionLabel>
       <MenuItem page="Modulation" tooltipText="Scene Editor">
         <LightingIcon fontSize="inherit" />
       </MenuItem>
@@ -81,9 +87,24 @@ export default function MenuBar() {
           />
         </MenuItem>
       )}
-      <MenuItem page="Mixer" tooltipText="DMX Mixer">
+
+      <Divider />
+
+      {/* ── Output ── */}
+      <SectionLabel>Output</SectionLabel>
+      <MenuItem page="Mixer" tooltipText="DMX Output">
         <MixerIcon fontSize="inherit" />
       </MenuItem>
+      {ledEnabled && (
+        <MenuItem page="WledMixer" tooltipText="LED Output">
+          <LedOutputIcon fontSize="inherit" />
+        </MenuItem>
+      )}
+
+      <Divider />
+
+      {/* ── Sound ── */}
+      <SectionLabel>Sound</SectionLabel>
       <MenuItem page="Audio" tooltipText="Audio Analysis">
         <AudioIcon fontSize="inherit" />
       </MenuItem>
@@ -92,6 +113,7 @@ export default function MenuBar() {
           <AutoControlIcon fontSize="inherit" />
         </MenuItem>
       )}
+
       <Spacer />
       <MasterSlider />
       <div style={{ height: '0.5rem' }} />
@@ -116,6 +138,23 @@ const Item = styled.div<{ selected: boolean }>`
     filter: grayscale(0%);
     opacity: 1;
   }
+`
+
+const Divider = styled.div`
+  width: 60%;
+  height: 1px;
+  background-color: ${(props) => props.theme.colors.divider};
+  margin: 0.3rem 0;
+`
+
+const SectionLabel = styled.div`
+  font-size: 0.55rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: ${(props) => props.theme.colors.text.secondary};
+  opacity: 0.6;
+  margin-top: 0.4rem;
+  margin-bottom: 0.1rem;
 `
 
 const Spacer = styled.div`

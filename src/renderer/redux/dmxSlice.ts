@@ -445,6 +445,54 @@ export const dmxSlice = createSlice({
         }
       })
     },
+    renameGroup: (
+      state,
+      { payload }: PayloadAction<{ oldName: string; newName: string }>
+    ) => {
+      const { oldName, newName } = payload
+      // Universe fixture instances
+      for (const fixture of state.universe) {
+        const idx = fixture.groups.indexOf(oldName)
+        if (idx !== -1) fixture.groups[idx] = newName
+      }
+      // Fixture types and their subfixtures
+      for (const id of state.fixtureTypes) {
+        const ft = state.fixtureTypesByID[id]
+        const idx = ft.groups.indexOf(oldName)
+        if (idx !== -1) ft.groups[idx] = newName
+        for (const sub of ft.subFixtures) {
+          const subIdx = sub.groups.indexOf(oldName)
+          if (subIdx !== -1) sub.groups[subIdx] = newName
+        }
+      }
+      // LED fixtures
+      for (const ledFixture of state.led.ledFixtures) {
+        const groups = ledFixture.groups ?? []
+        const idx = groups.indexOf(oldName)
+        if (idx !== -1) groups[idx] = newName
+      }
+    },
+    removeGroup: (
+      state,
+      { payload }: PayloadAction<string>
+    ) => {
+      const name = payload
+      for (const fixture of state.universe) {
+        fixture.groups = fixture.groups.filter((g) => g !== name)
+      }
+      for (const id of state.fixtureTypes) {
+        const ft = state.fixtureTypesByID[id]
+        ft.groups = ft.groups.filter((g) => g !== name)
+        for (const sub of ft.subFixtures) {
+          sub.groups = sub.groups.filter((g) => g !== name)
+        }
+      }
+      for (const ledFixture of state.led.ledFixtures) {
+        if (ledFixture.groups) {
+          ledFixture.groups = ledFixture.groups.filter((g) => g !== name)
+        }
+      }
+    },
     setLedFixtureWindowWidth: (
       state,
       { payload }: PayloadAction<{ dimension: 'x' | 'y'; width: number }>
@@ -496,6 +544,8 @@ export const {
   setLedFixtureWindowEnabled,
   setLedFixtureWindowPos,
   setLedFixtureWindowWidth,
+  renameGroup,
+  removeGroup,
 } = dmxSlice.actions
 
 export default dmxSlice.reducer
