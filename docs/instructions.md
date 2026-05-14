@@ -35,3 +35,48 @@ node-gyp rebuild
 ```
 
 Then restart the app with `npm start`.
+
+## Building and Releasing
+
+### Prerequisites
+
+- **GitHub CLI:** Install via `brew install gh` (macOS), then authenticate with `gh auth login` (uses browser — no Personal Access Token needed)
+- **Code signing:** A paid Apple Developer Program membership ($99/year) is required for a signed/notarized macOS build. Without it, set the following env var to skip signing:
+  ```bash
+  export CSC_IDENTITY_AUTO_DISCOVERY=false
+  ```
+  Users will see a Gatekeeper warning on first launch, which can be bypassed via right-click → Open.
+
+### Steps
+
+1. **Update the version** in `release/app/package.json`
+
+2. **Build the distributable:**
+   ```bash
+   CSC_IDENTITY_AUTO_DISCOVERY=false npm run package
+   ```
+   Output is written to `release/build/`.
+
+3. **Create and push a git tag** matching the version:
+   ```bash
+   git tag v1.x.x
+   git push origin v1.x.x
+   ```
+
+4. **Create a GitHub Release and upload artifacts:**
+   ```bash
+   gh release create v1.x.x release/build/*.dmg release/build/*.zip \
+     --title "v1.x.x" \
+     --notes "Release notes here"
+   ```
+
+### Notarization (optional, requires paid Apple Developer account)
+
+Notarization removes the Gatekeeper warning for end users. It only runs in CI (skipped automatically during local builds).
+
+To enable it in GitHub Actions:
+
+1. Update `teamId` in [.erb/scripts/notarize.js](../.erb/scripts/notarize.js) to your Apple Team ID (found at developer.apple.com → Membership)
+2. Add two GitHub Actions secrets:
+   - `APPLE_ID` — your Apple ID email
+   - `APPLE_ID_PASS` — an app-specific password (generated at appleid.apple.com)

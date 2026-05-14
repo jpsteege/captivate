@@ -1,17 +1,16 @@
 {
   "name": "captivate",
-  "version": "1.0.3",
-  "description": "Lighting and Visual Synth",
+  "version": "1.1.0",
+  "description": "Lighting and Visuals Controller",
   "homepage": "https://captivatesynth.com/",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/spensbot/captivate.git"
+    "url": "git+https://github.com/jpsteege/captivate.git"
   },
   "license": "MIT",
   "author": {
-    "name": "Spenser Saling",
-    "email": "spenser0saling@gmail.com",
-    "url": "https://electron-react-boilerplate.js.org"
+    "name": "Jan-peter van der Steege",
+    "url": "https://github.com/jpsteege"
   },
   "main": "./dist/main/main.js",
   "scripts": {
