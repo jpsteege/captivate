@@ -100,7 +100,7 @@ export function getDmxValue(
         randomizerLevel,
         fixture.window,
         movingWindow
-      )
+      ) * master
       return (
         getColorChannelLevel(
           getParam(params, 'hue'),
@@ -275,6 +275,21 @@ export function getSortedGroups(
     }
   }
   return Array.from(groupSet.keys()).sort((a, b) => (a > b ? 1 : -1))
+}
+
+// Returns the effective per-group brightness multiplier for a fixture.
+// Takes the minimum groupMaster across all of the fixture's groups.
+// Groups without an explicit entry default to 1.0 (no dimming).
+export function getGroupEffectiveMaster(
+  fixtureGroups: string[],
+  groupMaster: Record<string, number>
+): number {
+  let min = 1
+  for (const g of fixtureGroups) {
+    const gm = groupMaster[g]
+    if (gm !== undefined && gm < min) min = gm
+  }
+  return min
 }
 
 function calculate_axis_channel(

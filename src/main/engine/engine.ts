@@ -33,7 +33,7 @@ import { AUTO_SCENE_ID } from '../../renderer/redux/autoControlSlice'
 import { resolveBehavior } from '../../shared/vibeBehavior'
 import { initLightScene, initSplitScene, LightScene_t } from '../../shared/Scenes'
 import TapTempoEngine from './TapTempoEngine'
-import { flatten_fixtures, getFixturesInGroups, getLedFixturesInGroups, getSortedGroups } from '../../shared/dmxUtil'
+import { flatten_fixtures, getFixturesInGroups, getLedFixturesInGroups, getSortedGroups, getGroupEffectiveMaster } from '../../shared/dmxUtil'
 import { ThrottleMap } from './midiConnection'
 import { MidiMessage, midiInputID } from '../../shared/midi'
 import { getAllParamKeys } from '../../renderer/redux/dmxSlice'
@@ -401,7 +401,8 @@ function calculateWledOut(
     const matchingFixtures = getLedFixturesInGroups(ledFixtures, splitScene.groups)
 
     for (const fixture of matchingFixtures) {
-      let colors = getLedValues(splitState.outputParams, fixture, master)
+      const groupMult = getGroupEffectiveMaster(fixture.groups ?? [], controlState.control.groupMaster ?? {})
+      let colors = getLedValues(splitState.outputParams, fixture, master * groupMult)
       if (splitScene.ledEffect && splitScene.ledEffect.type !== 'none') {
         colors = applyLedEffect(colors, splitScene.ledEffect, timeState, splitState.outputParams.hue ?? 0)
       }

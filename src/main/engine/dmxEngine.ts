@@ -9,6 +9,7 @@ import {
   flatten_fixtures,
   forEachChannel,
   getDefaultDmxValue,
+  getGroupEffectiveMaster,
 } from '../../shared/dmxUtil'
 import { indexArray, zip } from '../../shared/util'
 import { TimeState } from '../../shared/TimeState'
@@ -45,9 +46,11 @@ export function calculateDmx(
       // Set each channel based on active scene fixtures
       forEachChannel(splitSceneFixtures, (fixtureIdx, fixture, channelIdx, channel) => {
         const randomizerLevel = randomizer[fixtureIdx]?.level ?? 1
+        const groupMult = getGroupEffectiveMaster(fixture.groups, state.control.groupMaster ?? {})
+        const effectiveMaster = state.control.master * groupMult
         channels[channelIdx] = Math.max(
           channels[channelIdx],
-          getDmxValue(channel, outputParams, fixture, state.control.master, randomizerLevel)
+          getDmxValue(channel, outputParams, fixture, effectiveMaster, randomizerLevel)
         )
       })
     }

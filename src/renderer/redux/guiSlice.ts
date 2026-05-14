@@ -11,6 +11,7 @@ import {
 
 export type Page =
   | 'Universe'
+  | 'Groups'
   | 'Modulation'
   | 'Video'
   | 'Share'

@@ -7,6 +7,7 @@ import Mixer from './pages/Mixer'
 import WledMixer from './pages/WledMixer'
 import AudioPage from './pages/AudioPage'
 import AutoControlPage from './pages/AutoControlPage'
+import GroupsPage from './pages/GroupsPage'
 import MenuBar from './menu/MenuBar'
 import { useTypedSelector } from './redux/store'
 import FullscreenOverlay from './overlays/FullscreenOverlay'
@@ -26,6 +27,7 @@ export default function App() {
     if (activePage == 'Mixer') return <Mixer />
     if (activePage == 'Led') return <LedPage />
     if (activePage == 'WledMixer') return <WledMixer />
+    if (activePage == 'Groups') return <GroupsPage />
     if (activePage == 'Audio') return <AudioPage />
     if (activePage == 'AutoControl') return <AutoControlPage />
     console.error(`Bad activePage value: ${activePage}`)

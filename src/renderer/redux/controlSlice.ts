@@ -29,6 +29,7 @@ import { reorderArray } from '../../shared/util'
 export interface ControlState extends ScenesStateBundle {
   device: DeviceState
   master: number
+  groupMaster: Record<string, number>  // group name → 0–1 brightness multiplier
 }
 export function initControlState(): ControlState {
   return {
@@ -36,6 +37,7 @@ export function initControlState(): ControlState {
     visual: initScenesState(initVisualScene()),
     device: initDeviceState(),
     master: 1,
+    groupMaster: {},
   }
 }
 
@@ -101,6 +103,46 @@ export const scenesSlice = createSlice({
   reducers: {
     setMaster: (state, { payload }: PayloadAction<number>) => {
       state.master = payload
+    },
+    setGroupMaster: (
+      state,
+      { payload }: PayloadAction<{ group: string; value: number }>
+    ) => {
+      state.groupMaster[payload.group] = payload.value
+    },
+    renameGroupInScenes: (
+      state,
+      { payload }: PayloadAction<{ oldName: string; newName: string }>
+    ) => {
+      const { oldName, newName } = payload
+      // Update all split scene group keys in every light scene
+      for (const sceneId of state.light.ids) {
+        const scene = state.light.byId[sceneId]
+        for (const split of scene.splitScenes) {
+          if (oldName in split.groups) {
+            split.groups[newName] = split.groups[oldName]
+            delete split.groups[oldName]
+          }
+        }
+      }
+      // Rename in groupMaster map too
+      if (oldName in state.groupMaster) {
+        state.groupMaster[newName] = state.groupMaster[oldName]
+        delete state.groupMaster[oldName]
+      }
+    },
+    removeGroupFromScenes: (
+      state,
+      { payload }: PayloadAction<string>
+    ) => {
+      const name = payload
+      for (const sceneId of state.light.ids) {
+        const scene = state.light.byId[sceneId]
+        for (const split of scene.splitScenes) {
+          delete split.groups[name]
+        }
+      }
+      delete state.groupMaster[name]
     },
     // =====================   LIGHT & VISUAL SCENES   ===========================
     setAutoSceneEnabled: (
@@ -485,6 +527,9 @@ export const scenesSlice = createSlice({
 
 export const {
   setMaster,
+  setGroupMaster,
+  renameGroupInScenes,
+  removeGroupFromScenes,
 
   // LIGHT & VISUAL SCENES
   setAutoSceneEnabled,
